@@ -176,7 +176,8 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
       </div>
       <div class="card">
         <div class="card-title">赔率（带本金）</div>
-        <div class="set-row"><span>特码赔率</span><input type="number" id="o-tema" value="47" step="0.5" inputmode="decimal"></div>
+        <div class="hint" style="margin-bottom:8px">特码：有效赔率 = 赔率 − 该条下注号码数（47投25个号 → 用22派彩）</div>
+        <div class="set-row"><span>特码赔率</span><input type="number" id="o-tema" value="47" step="0.5" inputmode="decimal" oninput="updateRebateHint()"></div>
         <div class="set-row"><span>平特肖赔率</span><input type="number" id="o-ptx" value="1" step="0.1" inputmode="decimal"></div>
         <div class="set-row"><span>平特尾赔率</span><input type="number" id="o-wei" value="0.8" step="0.05" inputmode="decimal"></div>
         <div class="set-row"><span>生肖赔率</span><input type="number" id="o-zod" value="1" step="0.1" inputmode="decimal"></div>
@@ -328,10 +329,9 @@ function updateRebateHint(){
   const el=document.getElementById('rebate-hint');if(!el)return;
   const rb=calcRebateByType(),tot=betTotalByType(null,'tema')+betTotalByType(null,'ptx')+betTotalByType(null,'wei');
   el.innerHTML=`<strong>回水计算（无论中否都退，设为0即不回水）：</strong><br>
-    特码回水 = 特码投注 × ${getO('huishui')}%<br>
-    平特肖回水 = 平特肖投注 × ${getO('huishui-ptx')}%<br>
-    尾数回水 = 尾数投注 × ${getO('huishui-wei')}%<br>
-    特码中奖 = 投注×特码赔率（含本金）+ 回水<br>
+    特码有效赔率 = 特码赔率 − 该条号码数（例：47−25=22）<br>
+    特码派彩 = 投注 × 有效赔率（含本金）+ 回水<br>
+    特码回水 ${getO('huishui')}% · 平肖 ${getO('huishui-ptx')}% · 尾数 ${getO('huishui-wei')}%<br>
     庄家盈亏 = 总投注 − 派彩合计${tot?`<br>当前回水：特码 ¥${rb.tema.toLocaleString()} · 平肖 ¥${rb.ptx.toLocaleString()} · 尾数 ¥${rb.wei.toLocaleString()}`:''}`;
 }
 function toast(){}
@@ -378,9 +378,13 @@ function parseLineSingle(seg,raw){
   let m=line.match(new RegExp('^尾\\s*数?\\s*(\\d)\\s+(\\d+)\\s*(?:'+UNIT_RE+')?\\s*$'));if(m){const t=+m[1],a=+m[2];if(a>0)return[{type:'wei',sub:t,amt:a,label:'尾'+t}]}
   const ex=extractAmt(line);if(!ex)return null;const{amt,pre}=ex;if(amt<=0)return null;
   const z=onlyZods(pre),nums=extractNums(pre.replace(/各\s*[号数名]?/g,''));
-  if(z.length>=2){const r=[];z.forEach(s=>ZOD_NUMS[s].forEach(n=>r.push({type:'tema',num:n,amt,label:String(n).padStart(2,'0'),fromZod:s})));return r}
+  if(z.length>=2){
+    const pool=z.reduce((s,zo)=>s+ZOD_NUMS[zo].length,0),r=[];
+    z.forEach(s=>ZOD_NUMS[s].forEach(n=>r.push({type:'tema',num:n,amt,label:String(n).padStart(2,'0'),fromZod:s,numCount:pool})));
+    return r;
+  }
   if(z.length===1&&nums.length===0)return[{type:'zodiac',sub:z[0],amt,label:z[0]}];
-  if(nums.length)return nums.map(n=>({type:'tema',num:n,amt,label:String(n).padStart(2,'0')}));
+  if(nums.length)return nums.map(n=>({type:'tema',num:n,amt,label:String(n).padStart(2,'0'),numCount:nums.length}));
   return null;
 }
 function parseText(text){
@@ -397,12 +401,14 @@ function parseText(text){
 }
 
 // ===== 赔付（带本金）=====
-// 特码赔率N = 派彩 N×投注（已含本金）；平特/尾数/生肖赔率N = 赢利 N×投注，另加本金
+// 特码有效赔率 = 设置赔率 − 该条注单号码数（例：47赔、25个号 → 有效22）
+function temaEffOdds(b){return Math.max(0,getO('tema')-(b.numCount||1))}
 function calcPay(b,ctx){
   const rr=rebateRate(b.type);let p=0,w=0,r=rr>0?b.amt*rr:0,wt='';
   if(b.type==='tema'){
     if(ctx.temaNum!=null&&b.num===ctx.temaNum){
-      const pay=b.amt*getO('tema');p=b.amt;w=Math.max(0,pay-b.amt);wt='特码命中';
+      const eo=temaEffOdds(b),pay=b.amt*eo;p=b.amt;w=Math.max(0,pay-b.amt);
+      wt=eo<getO('tema')?`特码命中 ${getO('tema')}-${b.numCount||1}=${eo}`:'特码命中';
     }else wt=r>0?'回水':'未中';
   }else if(b.type==='zodiac'&&ctx.temaNum!=null&&b.sub===ga(ctx.temaNum).zod){
     p=b.amt;w=b.amt*getO('zod');wt='生肖命中';
