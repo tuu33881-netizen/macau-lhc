@@ -8,6 +8,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0F1117">
 <meta name="format-detection" content="telephone=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>六合彩统计器</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -47,8 +50,6 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
 .bnav button{flex:1;border:none;background:none;color:var(--text3);font-size:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding-top:6px}
 .bnav button .ico{font-size:20px;line-height:1}
 .bnav button.on{color:var(--blue);font-weight:600}
-.toast{position:fixed;left:16px;right:16px;bottom:calc(var(--nav-h) + var(--safe-b) + 12px);background:#1a2540;border:1px solid var(--blue);color:var(--text);padding:12px 14px;border-radius:12px;font-size:13px;z-index:200;transform:translateY(120%);transition:transform .25s;pointer-events:none}
-.toast.show{transform:translateY(0)}
 .log-item{padding:8px 0;border-bottom:1px dashed var(--border);font-size:12px;line-height:1.5}
 .log-item.ok{color:var(--green)}.log-item.err{color:var(--red)}
 .heat{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
@@ -190,7 +191,6 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
   </nav>
 </div>
 
-<div class="toast" id="toast"></div>
 <div class="sheet" id="sheet" onclick="if(event.target===this)closeSheet()">
   <div class="sheet-panel" id="sheet-body"></div>
 </div>
@@ -214,7 +214,7 @@ function clearAllData(){clients=[];document.getElementById('raw').value='';docum
 function rebuildNumZod(){NUM_ZOD={};ZOD_ORDER.forEach(z=>(ZOD_NUMS[z]||[]).forEach(n=>NUM_ZOD[n]=z))}
 function buildZodiacByYear(a){const s=ZOD_ORDER.indexOf(a),m={};ZOD_ORDER.forEach(z=>m[z]=[]);for(let n=1;n<=49;n++)m[ZOD_ORDER[(s-((n-1)%12)+12)%12]].push(n);return m}
 function getO(k){return parseFloat(document.getElementById('o-'+k)?.value)||0}
-function toast(msg,dur=3000){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),dur)}
+function toast(){}
 function go(id,btn){document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));document.getElementById('pg-'+id).classList.add('on');document.querySelectorAll('.bnav button').forEach(b=>b.classList.remove('on'));if(btn)btn.classList.add('on');if(id==='stats')renderStats();if(id==='risk')renderRisk();if(id==='more')renderZodList();if(id==='settle')initBallInputs()}
 function closeSheet(){document.getElementById('sheet').classList.remove('on')}
 function ga(n){let bs='绿';if(RED.has(n))bs='红';else if(BLUE.has(n))bs='蓝';return{bs,zod:NUM_ZOD[n]||'?'}}
