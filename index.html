@@ -11,7 +11,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>六合彩统计器</title>
+<title>六合彩统计器 v2026.6.29</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
@@ -95,7 +95,7 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
 <div class="app">
   <header class="topbar">
     <h1>六合彩统计器 <span id="hdr-year" style="font-size:13px;color:var(--blue)"></span></h1>
-    <div class="sub">注单统计 · 风险分析 · 开奖结算</div>
+    <div class="sub">注单统计 · 风险分析 · 开奖结算 · <span id="app-ver"></span></div>
     <div class="total-pill" id="hdr-total">总投注 ¥0 · 0客户</div>
   </header>
 
@@ -446,29 +446,32 @@ function parseText(text){
 }
 
 // ===== 赔付（纯赢利，不含本金）=====
-const PTX_ODDS=1;
+const PTX_ODDS=1,APP_VER='2026.6.29';
+function isPtxBet(b){return b&&(b.type==='ptx'||/^平特/.test(b.label||''))}
 function ptxWinProfit(amt){return amt*PTX_ODDS}
 function calcPayAmount(b,w,r,p){
   if(w<=0)return r>0?r:0;
-  if(b.type==='ptx')return w+r;
+  if(isPtxBet(b))return w+r;
   return (p||b.amt)+w+r;
 }
-function displayPayout(x){return x.type==='ptx'?x.profit+x.rebate:x.pay}
+function displayPayout(x){return isPtxBet(x)?x.profit+(x.rebate||0):x.pay}
 function calcPay(b,ctx){
-  const rr=rebateRate(b.type);let w=0,r=rr>0?b.amt*rr:0,wt='';
+  const rr=rebateRate(isPtxBet(b)?'ptx':b.type);let w=0,r=rr>0?b.amt*rr:0,wt='';
   if(b.type==='tema'){
     if(ctx.temaNum!=null&&b.num===ctx.temaNum){w=b.amt*getO('tema');wt='特码命中'}
     else wt=r>0?'回水':'未中';
   }else if(b.type==='zodiac'&&ctx.temaNum!=null&&b.sub===ga(ctx.temaNum).zod){
     w=b.amt*getO('zod');wt='生肖命中';
-  }else if(b.type==='ptx'){
-    if(ctx.hitZods?.has(b.sub)){w=ptxWinProfit(b.amt);wt='平特'+b.sub+' 1:1'}
+  }else if(isPtxBet(b)){
+    const zo=b.sub||(b.label||'').replace(/^平特/,'');
+    if(ctx.hitZods?.has(zo)){w=ptxWinProfit(b.amt);wt='平特'+zo+' 1:1'}
     else wt=r>0?'回水':'未中';
   }else if(b.type==='wei'){
     if(ctx.hitTails?.has(b.sub)){w=b.amt*getO('wei');wt='尾'+b.sub}
     else wt=r>0?'回水':'未中';
   }
-  return{profit:w,rebate:r,pay:calcPayAmount(b,w,r),winType:wt};
+  const pay=calcPayAmount(b,w,r);
+  return{profit:w,rebate:r,pay,winType:wt};
 }
 // ===== 旧派彩（含本金，有效赔率=赔率−号码数）=====
 function temaEffOddsLegacy(b){return Math.max(0,getO('tema')-(b.numCount||1))}
@@ -481,8 +484,9 @@ function calcPayLegacy(b,ctx){
     }else wt=r>0?'回水':'未中';
   }else if(b.type==='zodiac'&&ctx.temaNum!=null&&b.sub===ga(ctx.temaNum).zod){
     p=b.amt;w=b.amt*getO('zod');wt='生肖命中';
-  }else if(b.type==='ptx'){
-    if(ctx.hitZods?.has(b.sub)){w=ptxWinProfit(b.amt);wt='平特'+b.sub+' 1:1'}
+  }else if(isPtxBet(b)){
+    const zo=b.sub||(b.label||'').replace(/^平特/,'');
+    if(ctx.hitZods?.has(zo)){w=ptxWinProfit(b.amt);wt='平特'+zo+' 1:1'}
     else wt=r>0?'回水':'未中';
   }else if(b.type==='wei'){
     if(ctx.hitTails?.has(b.sub)){p=b.amt;w=b.amt*getO('wei');wt='尾'+b.sub}
@@ -653,9 +657,10 @@ function doSettle(){
     c.bets.forEach(b=>{
       totB+=b.amt;ct+=b.amt;
       const x=calcPay(b,ctx);
-      cs.w+=x.profit;cs.r+=x.rebate;cs.pay+=x.pay;
-      sum.w+=x.profit;sum.r+=x.rebate;sum.pay+=x.pay;
-      if(x.profit>0||x.rebate>0){const row={...b,...x,client:c.name};wins.push(row);cWins.push(row)}
+      const disp=displayPayout({...b,...x});
+      cs.w+=x.profit;cs.r+=x.rebate;cs.pay+=disp;
+      sum.w+=x.profit;sum.r+=x.rebate;sum.pay+=disp;
+      if(x.profit>0||x.rebate>0){const row={...b,...x,pay:displayPayout({...b,...x}),client:c.name};wins.push(row);cWins.push(row)}
     });
     const hp=housePnlNet(ct,cs.w,cs.r),hasWin=x=>x.profit>0,hasRebateOnly=cWins.length>0&&!cWins.some(hasWin);
     return{name:c.name,bet:ct,pay:cs.pay,profit:cs.w,rebate:cs.r,pnl:hp,wins:cWins,winCount:cWins.length,hitWin:cWins.some(hasWin),rebateOnly:hasRebateOnly};
@@ -716,6 +721,7 @@ function loadAll(){
   rebuildNumZod();renderClients();updateHeader();
 }
 rebuildNumZod();loadAll();initBallInputs();initWeChat();updateRebateHint();
+document.getElementById('app-ver').textContent='v'+APP_VER;
 </script>
 </body>
 </html>
