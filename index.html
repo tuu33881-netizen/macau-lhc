@@ -11,7 +11,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>六合彩统计器 v2026.6.29</title>
+<title>六合彩统计器 v2026.6.29b</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
@@ -176,7 +176,7 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
       </div>
       <div class="card">
         <div class="card-title">赔率</div>
-        <div class="hint" style="margin-bottom:8px">特码/生肖/尾数：赢利=投注×赔率 · 平特肖：固定1:1，派彩=赢利+回水</div>
+        <div class="hint" style="margin-bottom:8px">特码47赔含本金：有效赔率=赔率−号码数，赢利=投注×(有效赔率−1) · 派彩=赢利+回水</div>
         <div class="set-row"><span>特码赔率</span><input type="number" id="o-tema" value="47" step="0.5" inputmode="decimal" oninput="updateRebateHint()"></div>
         <div class="set-row"><span>平特肖赔率</span><span style="text-align:right;color:var(--text2);font-size:14px">1:1 固定（投多少赢多少）</span></div>
         <div class="set-row"><span>平特尾赔率</span><input type="number" id="o-wei" value="0.8" step="0.05" inputmode="decimal"></div>
@@ -329,8 +329,8 @@ function updateRebateHint(){
   const el=document.getElementById('rebate-hint');if(!el)return;
   const rb=calcRebateByType(),tot=betTotalByType(null,'tema')+betTotalByType(null,'ptx')+betTotalByType(null,'wei');
   el.innerHTML=`<strong>回水计算（无论中否都退，设为0即不回水）：</strong><br>
-    特码/生肖/尾数：赢利 = 投注 × 赔率 · 实收 = 投注 + 赢利 + 回水<br>
-    平特肖：固定1:1 · 赢利=投注额 · 实收=赢利+回水<br>
+    特码：赔率含本金，赢利=投注×(有效赔率−1) · 派彩=赢利+回水<br>
+    平特肖：固定1:1 · 派彩=赢利+回水<br>
     特码回水 ${getO('huishui')}% · 平肖 ${getO('huishui-ptx')}% · 尾数 ${getO('huishui-wei')}%<br>
     庄家盈亏 = 总投注 − 赢利 − 回水${tot?`<br>当前回水：特码 ¥${rb.tema.toLocaleString()} · 平肖 ¥${rb.ptx.toLocaleString()} · 尾数 ¥${rb.wei.toLocaleString()}`:''}`;
 }
@@ -445,21 +445,21 @@ function parseText(text){
   return{bets:out,log,errs};
 }
 
-// ===== 赔付（纯赢利，不含本金）=====
-const PTX_ODDS=1,APP_VER='2026.6.29';
+// ===== 赔付（赔率含本金，派彩=赢利+回水，不退本金）=====
+const PTX_ODDS=1,APP_VER='2026.6.29b';
 function isPtxBet(b){return b&&(b.type==='ptx'||/^平特/.test(b.label||''))}
 function ptxWinProfit(amt){return amt*PTX_ODDS}
-function calcPayAmount(b,w,r,p){
-  if(w<=0)return r>0?r:0;
-  if(isPtxBet(b))return w+r;
-  return (p||b.amt)+w+r;
-}
-function displayPayout(x){return isPtxBet(x)?x.profit+(x.rebate||0):x.pay}
+function temaEffOdds(b){return Math.max(0,getO('tema')-(b.numCount||1))}
+function temaWinProfit(b){const eo=temaEffOdds(b);return Math.max(0,b.amt*(eo-1))}
+function calcPayAmount(w,r){return w>0?w+r:(r>0?r:0)}
+function displayPayout(x){return x.profit+(x.rebate||0)}
 function calcPay(b,ctx){
   const rr=rebateRate(isPtxBet(b)?'ptx':b.type);let w=0,r=rr>0?b.amt*rr:0,wt='';
   if(b.type==='tema'){
-    if(ctx.temaNum!=null&&b.num===ctx.temaNum){w=b.amt*getO('tema');wt='特码命中'}
-    else wt=r>0?'回水':'未中';
+    if(ctx.temaNum!=null&&b.num===ctx.temaNum){
+      const eo=temaEffOdds(b);w=temaWinProfit(b);
+      wt=eo<getO('tema')?`特码 ${getO('tema')}-${b.numCount||1}=${eo}`:'特码命中';
+    }else wt=r>0?'回水':'未中';
   }else if(b.type==='zodiac'&&ctx.temaNum!=null&&b.sub===ga(ctx.temaNum).zod){
     w=b.amt*getO('zod');wt='生肖命中';
   }else if(isPtxBet(b)){
@@ -470,43 +470,21 @@ function calcPay(b,ctx){
     if(ctx.hitTails?.has(b.sub)){w=b.amt*getO('wei');wt='尾'+b.sub}
     else wt=r>0?'回水':'未中';
   }
-  const pay=calcPayAmount(b,w,r);
-  return{profit:w,rebate:r,pay,winType:wt};
+  return{profit:w,rebate:r,pay:calcPayAmount(w,r),winType:wt};
 }
-// ===== 旧派彩（含本金，有效赔率=赔率−号码数）=====
-function temaEffOddsLegacy(b){return Math.max(0,getO('tema')-(b.numCount||1))}
-function calcPayLegacy(b,ctx){
-  const rr=rebateRate(b.type);let p=0,w=0,r=rr>0?b.amt*rr:0,wt='';
-  if(b.type==='tema'){
-    if(ctx.temaNum!=null&&b.num===ctx.temaNum){
-      const eo=temaEffOddsLegacy(b),pay=b.amt*eo;p=b.amt;w=Math.max(0,pay-b.amt);
-      wt=eo<getO('tema')?`特码 ${getO('tema')}-${b.numCount||1}=${eo}`:'特码命中';
-    }else wt=r>0?'回水':'未中';
-  }else if(b.type==='zodiac'&&ctx.temaNum!=null&&b.sub===ga(ctx.temaNum).zod){
-    p=b.amt;w=b.amt*getO('zod');wt='生肖命中';
-  }else if(isPtxBet(b)){
-    const zo=b.sub||(b.label||'').replace(/^平特/,'');
-    if(ctx.hitZods?.has(zo)){w=ptxWinProfit(b.amt);wt='平特'+zo+' 1:1'}
-    else wt=r>0?'回水':'未中';
-  }else if(b.type==='wei'){
-    if(ctx.hitTails?.has(b.sub)){p=b.amt;w=b.amt*getO('wei');wt='尾'+b.sub}
-    else wt=r>0?'回水':'未中';
-  }
-  const payout=calcPayAmount(b,w,r,p);
-  return{principal:p,profit:w,rebate:r,payout,winType:wt};
-}
+function calcPayLegacy(b,ctx){return calcPay(b,ctx)}
 function housePnlNet(bet,profit,rebate){return bet-(profit||0)-(rebate||0)}
 function calcRisk(b,n){return calcPay(b,{temaNum:n,hitZods:new Set([ga(n).zod]),hitTails:new Set([n%10])})}
 function settleGrandLegacy(ctx){
-  let totB=0,sum={p:0,w:0,r:0,payout:0},rows=[];
+  let totB=0,sum={w:0,r:0,payout:0},rows=[];
   clients.forEach(c=>{
-    let ct=0,cs={p:0,w:0,r:0,payout:0};
+    let ct=0,cs={w:0,r:0,payout:0};
     c.bets.forEach(b=>{
       ct+=b.amt;const x=calcPayLegacy(b,ctx);
-      cs.p+=x.principal;cs.w+=x.profit;cs.r+=x.rebate;cs.payout+=x.payout;
+      cs.w+=x.profit;cs.r+=x.rebate;cs.payout+=x.pay;
     });
-    totB+=ct;sum.p+=cs.p;sum.w+=cs.w;sum.r+=cs.r;sum.payout+=cs.payout;
-    rows.push({name:c.name,bet:ct,principal:cs.p,payout:cs.payout,profit:cs.w,rebate:cs.r,pnl:housePnlNet(ct,cs.w,cs.r)});
+    totB+=ct;sum.w+=cs.w;sum.r+=cs.r;sum.payout+=cs.payout;
+    rows.push({name:c.name,bet:ct,payout:cs.payout,profit:cs.w,rebate:cs.r,pnl:housePnlNet(ct,cs.w,cs.r)});
   });
   return{totB,sum,pnl:housePnlNet(totB,sum.w,sum.r),rows};
 }
@@ -515,14 +493,13 @@ function renderGrandLegacyCard(legacy,balls){
   const ballStr=balls.slice(0,6).map(n=>String(n).padStart(2,'0')).join(' ')+' + '+String(balls[6]).padStart(2,'0');
   const clientRows=legacy.rows.map(c=>`<div class="list-row"><span>${c.name}</span><span style="font-size:13px;text-align:right">投注 ¥${Math.round(c.bet).toLocaleString()} · 派彩 ¥${Math.round(c.payout).toLocaleString()}<br><span style="color:${c.pnl>=0?'var(--green)':'var(--red)'}">庄家${c.pnl>=0?'赚':'亏'} ¥${Math.round(Math.abs(c.pnl)).toLocaleString()}</span></span></div>`).join('');
   return`<div class="card" style="border-color:#4a5f8a">
-    <div class="card-title">盈亏大合计（旧派彩·含本金）</div>
-    <div class="hint" style="margin-bottom:10px">开奖 ${ballStr} · 特码：有效赔率=赔率−号码数 · 平特：1:1，派彩=赢利+回水</div>
+    <div class="card-title">盈亏大合计</div>
+    <div class="hint" style="margin-bottom:10px">开奖 ${ballStr} · 47赔含本金，赢利=投注×(有效赔率−1) · 派彩=赢利+回水</div>
     <div class="hero" style="font-size:32px;color:${pnl>=0?'var(--green)':'var(--red)'}">${pnl>=0?'+':'-'}¥${Math.round(Math.abs(pnl)).toLocaleString()}</div>
     <div class="hint" style="text-align:center;margin-bottom:10px">庄家盈亏 = 总投注 − 赢利 − 回水</div>
     <div class="kpi">
       <div class="kpi-item"><div class="lb">总投注</div><div class="vl">¥${Math.round(legacy.totB).toLocaleString()}</div></div>
       <div class="kpi-item"><div class="lb">派彩合计</div><div class="vl" style="color:var(--yellow)">¥${Math.round(s.payout).toLocaleString()}</div></div>
-      <div class="kpi-item"><div class="lb">退回本金</div><div class="vl">¥${Math.round(s.p).toLocaleString()}</div></div>
       <div class="kpi-item"><div class="lb">赢利支出</div><div class="vl" style="color:var(--yellow)">¥${Math.round(s.w).toLocaleString()}</div></div>
       <div class="kpi-item"><div class="lb">回水</div><div class="vl">¥${Math.round(s.r).toLocaleString()}</div></div>
       <div class="kpi-item"><div class="lb">庄家盈亏</div><div class="vl" style="color:${pnl>=0?'var(--green)':'var(--red)'}">${pnl>=0?'+':'-'}¥${Math.round(Math.abs(pnl)).toLocaleString()}</div></div>
@@ -676,7 +653,7 @@ function doSettle(){
   const winClientRows=winClients.length?winClients.map(c=>`<div class="list-row"><span><span class="badge bclient">${c.name}</span> ${c.winCount}笔</span><strong style="color:var(--yellow)">¥${Math.round(c.pay).toLocaleString()}</strong></div>`).join(''):'<div class="empty">本期无派彩</div>';
   const winDetail=wins.slice(0,50).map(b=>`<div class="list-row"><span><span class="badge bclient">${b.client}</span> ${b.label||b.num} <span class="badge b${b.type}">${TL[b.type]}</span>${b.winType?` <span style="font-size:11px;color:var(--text3)">${b.winType}</span>`:''}</span><span>¥${Math.round(displayPayout(b)).toLocaleString()}</span></div>`).join('');
   document.getElementById('settle-out').innerHTML=`${grandCard}
-    <div class="card"><div class="card-title">本期结算（纯赢利）</div><div class="hero" style="color:${houseProfit>=0?'var(--green)':'var(--red)'}">${houseProfit>=0?'+':'-'}¥${Math.round(Math.abs(houseProfit)).toLocaleString()}</div>
+    <div class="card"><div class="card-title">本期结算</div><div class="hero" style="color:${houseProfit>=0?'var(--green)':'var(--red)'}">${houseProfit>=0?'+':'-'}¥${Math.round(Math.abs(houseProfit)).toLocaleString()}</div>
     <div class="hint" style="text-align:center">庄家${houseProfit>=0?'盈利':'亏损'} = 总投注 − 赢利 − 回水</div>
     <div class="kpi" style="margin-top:10px">
       <div class="kpi-item"><div class="lb">总投注</div><div class="vl">¥${Math.round(totB).toLocaleString()}</div></div>
