@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0F1117">
+<meta name="format-detection" content="telephone=no">
+<title>六合彩统计器</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#0F1117;--bg2:#181C27;--bg3:#1E2336;--bg4:#252B3E;
+  --border:#2A3050;--text:#E8EAF0;--text2:#8B93B0;--text3:#5A6180;
+  --blue:#4A9FFF;--green:#2ECC8A;--red:#FF4D4D;--yellow:#F5C842;--purple:#B06EFF;
+  --safe-b:env(safe-area-inset-bottom,0px);
+  --safe-t:env(safe-area-inset-top,0px);
+  --nav-h:62px;
+}
+html,body{height:100%;overflow:hidden}
+body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Segoe UI',sans-serif;font-size:15px;color:var(--text);background:var(--bg)}
+.app{display:flex;flex-direction:column;height:100%;padding-top:var(--safe-t)}
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:12px 16px 10px;flex-shrink:0}
+.topbar h1{font-size:17px;font-weight:700}
+.topbar .sub{font-size:12px;color:var(--text2);margin-top:2px}
+.topbar .total-pill{display:inline-block;margin-top:6px;background:#1a2540;color:var(--blue);padding:4px 12px;border-radius:20px;font-size:14px;font-weight:700}
+.main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 12px calc(var(--nav-h) + var(--safe-b) + 12px)}
+.page{display:none}.page.on{display:block}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px}
+.card-title{font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.5px;margin-bottom:10px;text-transform:uppercase}
+textarea,input,select{font-size:16px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px;color:var(--text);width:100%;font-family:inherit}
+textarea{min-height:140px;line-height:1.6;resize:none;font-family:ui-monospace,Menlo,monospace}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
+.btn{display:flex;align-items:center;justify-content:center;gap:6px;min-height:48px;padding:12px 16px;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;width:100%}
+.btn-primary{background:var(--blue);color:#fff}
+.btn-secondary{background:var(--bg3);color:var(--text);border:1px solid var(--border)}
+.btn-danger{background:#3D1515;color:var(--red);border:1px solid #5C1F1F}
+.btn-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.btn-row3{grid-template-columns:1fr 1fr 1fr}
+.hero{font-size:28px;font-weight:800;text-align:center;color:var(--red);padding:8px 0}
+.kpi{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.kpi-item{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:12px}
+.kpi-item .lb{font-size:11px;color:var(--text3)}.kpi-item .vl{font-size:18px;font-weight:700;margin-top:4px}
+.bnav{position:fixed;left:0;right:0;bottom:0;height:calc(var(--nav-h) + var(--safe-b));padding-bottom:var(--safe-b);background:var(--bg2);border-top:1px solid var(--border);display:flex;z-index:100}
+.bnav button{flex:1;border:none;background:none;color:var(--text3);font-size:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding-top:6px}
+.bnav button .ico{font-size:20px;line-height:1}
+.bnav button.on{color:var(--blue);font-weight:600}
+.toast{position:fixed;left:16px;right:16px;bottom:calc(var(--nav-h) + var(--safe-b) + 12px);background:#1a2540;border:1px solid var(--blue);color:var(--text);padding:12px 14px;border-radius:12px;font-size:13px;z-index:200;transform:translateY(120%);transition:transform .25s;pointer-events:none}
+.toast.show{transform:translateY(0)}
+.log-item{padding:8px 0;border-bottom:1px dashed var(--border);font-size:12px;line-height:1.5}
+.log-item.ok{color:var(--green)}.log-item.err{color:var(--red)}
+.heat{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.hcell{border-radius:8px;padding:6px 2px;text-align:center;font-size:11px;background:var(--bg3)}
+.hcell .n{font-weight:700;font-size:12px}.hcell .a{font-size:9px;color:var(--text2);margin-top:2px}
+.list-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:14px}
+.list-row:last-child{border:none}
+.badge{font-size:10px;padding:2px 8px;border-radius:8px;font-weight:600}
+.btema{background:#1e1b3d;color:#8B6EFF}.bptx{background:#2d1325;color:#CC5EA8}.bzod{background:#0d2519;color:#2ECC8A}.bwei{background:#2d2010;color:#F5C842}
+.ball-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.ball-in{text-align:center}
+.ball-in label{font-size:10px;color:var(--text2);display:block;margin-bottom:4px}
+.ball-in input{text-align:center;font-size:18px;font-weight:700;padding:10px 4px}
+.ball{display:inline-flex;align-items:center;justify-content:center;border-radius:50%;font-weight:700;color:#fff}
+.br{background:linear-gradient(135deg,#E24B4A,#C0392B)}.bb{background:linear-gradient(135deg,#378ADD,#2471C5)}.bg{background:linear-gradient(135deg,#3B8A3B,#2E6E2E)}
+.zod-row{display:grid;grid-template-columns:36px 28px 1fr;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)}
+.zod-row input{font-size:14px;padding:8px}
+.empty{text-align:center;color:var(--text3);padding:32px 12px;font-size:13px}
+.sheet{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:300;display:none;align-items:flex-end}
+.sheet.on{display:flex}
+.sheet-panel{background:var(--bg2);border-radius:16px 16px 0 0;width:100%;max-height:80vh;overflow-y:auto;padding:16px;padding-bottom:calc(16px + var(--safe-b))}
+.sheet-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 12px}
+.hint{font-size:12px;color:var(--text3);line-height:1.6;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <h1>六合彩统计器 <span id="hdr-year" style="font-size:13px;color:var(--blue)"></span></h1>
+    <div class="sub">手机版 · 安卓 / 苹果通用 · 可添加到主屏幕</div>
+    <div class="total-pill" id="hdr-total">总投注 ¥0</div>
+  </header>
+
+  <main class="main">
+    <!-- 录入 -->
+    <div id="pg-input" class="page on">
+      <div class="card">
+        <div class="card-title">粘贴注单</div>
+        <textarea id="raw" placeholder="每行一条，例如：&#10;猪鸡狗猴各号50&#10;01 02 03 各100&#10;平特马3000&#10;尾0 500"></textarea>
+        <div class="hint">只认文字+数字，符号自动忽略</div>
+        <button class="btn btn-primary" style="margin-top:12px" onclick="doStats()">立即统计</button>
+        <div class="btn-row">
+          <button class="btn btn-secondary" onclick="previewParse()">预览解析</button>
+          <button class="btn btn-secondary" onclick="fillDemo()">示例</button>
+        </div>
+        <button class="btn btn-secondary" style="margin-top:8px" onclick="clearInput()">清空</button>
+      </div>
+      <div id="preview-box" class="card" style="display:none"></div>
+    </div>
+
+    <!-- 统计 -->
+    <div id="pg-stats" class="page">
+      <div id="stats-kpi" class="kpi"></div>
+      <div class="card"><div class="card-title">特码 TOP</div><div id="stats-top"></div></div>
+      <div class="card"><div class="card-title">49号热力图</div><div id="stats-heat" class="heat"></div></div>
+      <div class="card"><div class="card-title">平特肖 / 生肖 / 尾数</div><div id="stats-other"></div></div>
+    </div>
+
+    <!-- 风险 -->
+    <div id="pg-risk" class="page">
+      <div id="risk-kpi" class="kpi"></div>
+      <div class="card"><div id="risk-banner"></div></div>
+      <div class="card"><div class="card-title">风险 TOP5</div><div id="risk-top"></div></div>
+      <div class="card"><div class="card-title">49号风险（点击看拆解）</div><div id="risk-grid" class="heat"></div></div>
+    </div>
+
+    <!-- 结算 -->
+    <div id="pg-settle" class="page">
+      <div class="card">
+        <div class="card-title">开奖号码 6正 + 1特</div>
+        <input type="text" id="quickfill" placeholder="快速输入：08 16 26 01 29 30 07" oninput="quickParse()" style="margin-bottom:10px">
+        <div class="ball-grid" id="ball-inputs"></div>
+        <button class="btn btn-primary" style="margin-top:12px" onclick="doSettle()">立即结算（带本金）</button>
+      </div>
+      <div id="settle-out"></div>
+    </div>
+
+    <!-- 设置 -->
+    <div id="pg-more" class="page">
+      <div class="card">
+        <div class="card-title">生肖卡 · <span id="z-year-lbl"></span></div>
+        <div class="btn-row btn-row3" style="margin-top:0">
+          <button class="btn btn-secondary" onclick="loadPreset(2026)">26马</button>
+          <button class="btn btn-secondary" onclick="loadPreset(2025)">25蛇</button>
+          <button class="btn btn-secondary" onclick="loadPreset(2027)">27羊</button>
+        </div>
+        <button class="btn btn-secondary" style="margin-top:8px" onclick="autoGenZod()">按年肖自动生成</button>
+        <div id="zod-list" style="margin-top:10px"></div>
+        <button class="btn btn-primary" style="margin-top:10px" onclick="saveZodiac()">保存生肖卡</button>
+      </div>
+      <div class="card">
+        <div class="card-title">赔率（带本金）</div>
+        <div class="zod-row"><span>特码赔率</span><input type="number" id="o-tema" value="47" step="0.5"></div>
+        <div class="zod-row"><span>回水%</span><input type="number" id="o-huishui" value="1" step="0.1"></div>
+        <div class="zod-row"><span>平特肖</span><input type="number" id="o-ptx" value="1" step="0.1"></div>
+        <div class="zod-row"><span>平特尾</span><input type="number" id="o-wei" value="0.8" step="0.05"></div>
+        <div class="zod-row"><span>生肖</span><input type="number" id="o-zod" value="1" step="0.1"></div>
+        <button class="btn btn-primary" style="margin-top:10px" onclick="saveOdds()">保存赔率</button>
+      </div>
+      <div class="card">
+        <div class="card-title">使用说明</div>
+        <div class="hint">
+          ① 粘贴注单 → 点「立即统计」<br>
+          ② 查看统计 / 风险 / 结算<br>
+          ③ <strong>苹果</strong>：Safari → 分享 → 添加到主屏幕<br>
+          ④ <strong>安卓</strong>：Chrome → 菜单 → 添加到主屏幕<br>
+          ⑤ 数据保存在本机，无需联网
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <nav class="bnav">
+    <button class="on" onclick="go('input',this)"><span class="ico">📋</span>录入</button>
+    <button onclick="go('stats',this)"><span class="ico">📊</span>统计</button>
+    <button onclick="go('risk',this)"><span class="ico">⚠️</span>风险</button>
+    <button onclick="go('settle',this)"><span class="ico">🎯</span>结算</button>
+    <button onclick="go('more',this)"><span class="ico">⚙️</span>设置</button>
+  </nav>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="sheet" id="sheet" onclick="if(event.target===this)closeSheet()">
+  <div class="sheet-panel" id="sheet-body"></div>
+</div>
+
+<script>
+const ZOD_ORDER=['鼠','牛','虎','兔','龙','蛇','马','羊','猴','鸡','狗','猪'];
+const ZOD_E={鼠:'🐭',牛:'🐮',虎:'🐯',兔:'🐰',龙:'🐲',蛇:'🐍',马:'🐴',羊:'🐑',猴:'🐵',鸡:'🐔',狗:'🐶',猪:'🐷'};
+const YEAR_ANIMAL={2024:'龙',2025:'蛇',2026:'马',2027:'羊',2028:'猴',2029:'鸡',2030:'狗'};
+const RED=new Set([1,2,7,8,12,13,18,19,23,24,29,30,34,35,40,45,46]);
+const BLUE=new Set([3,4,9,10,14,15,20,25,26,31,36,37,41,42,47,48]);
+const TL={tema:'特码',zodiac:'生肖',ptx:'平特肖',wei:'尾数'};
+let ZOD_NUMS={鼠:[7,19,31,43],牛:[6,18,30,42],虎:[5,17,29,41],兔:[4,16,28,40],龙:[3,15,27,39],蛇:[2,14,26,38],马:[1,13,25,37,49],羊:[12,24,36,48],猴:[11,23,35,47],鸡:[10,22,34,46],狗:[9,21,33,45],猪:[8,20,32,44]};
+let NUM_ZOD={},ZOD_YEAR=2026,ZOD_YEAR_ANIMAL='马',bets=[];
+
+function rebuildNumZod(){NUM_ZOD={};ZOD_ORDER.forEach(z=>(ZOD_NUMS[z]||[]).forEach(n=>NUM_ZOD[n]=z))}
+function buildZodiacByYear(a){const s=ZOD_ORDER.indexOf(a),m={};ZOD_ORDER.forEach(z=>m[z]=[]);for(let n=1;n<=49;n++)m[ZOD_ORDER[(s-((n-1)%12)+12)%12]].push(n);return m}
+function getO(k){return parseFloat(document.getElementById('o-'+k)?.value)||0}
+function toast(msg,dur=3000){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),dur)}
+function go(id,btn){document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));document.getElementById('pg-'+id).classList.add('on');document.querySelectorAll('.bnav button').forEach(b=>b.classList.remove('on'));if(btn)btn.classList.add('on');if(id==='stats')renderStats();if(id==='risk')renderRisk();if(id==='more')renderZodList();if(id==='settle')initBallInputs()}
+function closeSheet(){document.getElementById('sheet').classList.remove('on')}
+function ga(n){let bs='绿';if(RED.has(n))bs='红';else if(BLUE.has(n))bs='蓝';return{bs,zod:NUM_ZOD[n]||'?'}}
+
+// ===== 解析引擎 =====
+function sanitizeLine(l){return l.trim().replace(/[^\u4e00-\u9fff\d]/g,' ').replace(/([\u4e00-\u9fff])(\d)/g,'$1 $2').replace(/(\d)([\u4e00-\u9fff])/g,'$1 $2').replace(/\s+/g,' ').trim()}
+function extractZods(t){const f=[];(t.match(/[鼠牛虎兔龙蛇马羊猴鸡狗猪]/g)||[]).forEach(c=>{if(ZOD_ORDER.includes(c))f.push(c)});return f}
+function onlyZods(t){return extractZods(t.replace(/[平特尾肖连各名号数特码\s\d]/g,''))}
+function extractNums(t){const s=new Set();(t.match(/\d{1,2}/g)||[]).forEach(x=>{const n=+x;if(n>=1&&n<=49)s.add(n)});return[...s].sort((a,b)=>a-b)}
+function extractAmt(s){let m=s.match(/各\s*[号数]?\s*(\d+)\s*$/);if(m)return{amt:+m[1],pre:s.slice(0,s.length-m[0].length).trim()};const p=s.trim().split(/\s+/);if(p.length>=2){const l=+p[p.length-1];if(l>=10)return{amt:l,pre:p.slice(0,-1).join(' ')}}return null}
+function splitMultiGe(l){const m=[...l.matchAll(/(.+?各\s*\d+)/g)].map(x=>x[1].trim());return m.length>1?m:[l]}
+function parseLineSingle(seg,raw){
+  const line=sanitizeLine(seg);if(!line)return null;raw=raw||seg;
+  if(line.includes('平特')){
+    let m=line.match(/^平特\s*肖?\s*(.+?)\s*各\s*(\d+)\s*$/);if(m){const z=onlyZods(m[1]),a=+m[2];if(z.length&&a>0)return z.map(s=>({type:'ptx',sub:s,amt:a,label:'平特'+s}))}
+    m=line.match(/^平特\s*肖?\s*(.+?)\s*(\d+)\s*$/);if(m){const b=m[1],a=+m[2],z=onlyZods(b);if(z.length&&a>0&&!/\d/.test(b))return z.map(s=>({type:'ptx',sub:s,amt:a,label:'平特'+s}))}
+  }
+  let m=line.match(/^尾\s*数?\s*(\d)\s+(\d+)\s*$/);if(m){const t=+m[1],a=+m[2];if(a>0)return[{type:'wei',sub:t,amt:a,label:'尾'+t}]}
+  const ex=extractAmt(line);if(!ex)return null;const{amt,pre}=ex;if(amt<=0)return null;
+  const z=onlyZods(pre),nums=extractNums(pre.replace(/各\s*[号数]?/g,''));
+  if(z.length>=2){const r=[];z.forEach(s=>ZOD_NUMS[s].forEach(n=>r.push({type:'tema',num:n,amt,label:String(n).padStart(2,'0'),fromZod:s})));return r}
+  if(z.length===1&&nums.length===0)return[{type:'zodiac',sub:z[0],amt,label:z[0]}];
+  if(nums.length)return nums.map(n=>({type:'tema',num:n,amt,label:String(n).padStart(2,'0')}));
+  return null;
+}
+function parseText(text){
+  const out=[],log=[],errs=[];
+  text.split('\n').forEach(line=>{
+    const t=line.trim();if(!t)return;
+    const raw=t,s=sanitizeLine(t);if(!s){errs.push(t);log.push({ok:false,line:t,detail:'空行'});return}
+    const parts=splitMultiGe(s),all=[];
+    for(const p of parts){const r=parseLineSingle(p,raw);if(r)all.push(...r)}
+    if(all.length){out.push(...all);log.push({ok:true,line:t,detail:all.length+'注 ¥'+all.reduce((a,b)=>a+b.amt,0)})}
+    else{errs.push(t);log.push({ok:false,line:t,detail:'无法识别'})}
+  });
+  return{bets:out,log,errs};
+}
+
+// ===== 赔付（带本金）=====
+function calcPay(b,ctx){
+  const hs=getO('huishui')/100;let p=0,w=0,r=0,wt='',dt='';
+  if(b.type==='tema'){r=b.amt*hs;if(ctx.temaNum!=null&&b.num===ctx.temaNum){p=b.amt;w=b.amt*getO('tema');wt='特码命中'}else wt=r>0?'回水':'未中'}
+  else if(b.type==='zodiac'&&ctx.temaNum!=null&&b.sub===ga(ctx.temaNum).zod){p=b.amt;w=b.amt*getO('zod');wt='生肖命中'}
+  else if(b.type==='ptx'&&ctx.hitZods?.has(b.sub)){p=b.amt;w=b.amt*getO('ptx');wt='平特'+b.sub}
+  else if(b.type==='wei'&&ctx.hitTails?.has(b.sub)){p=b.amt;w=b.amt*getO('wei');wt='尾'+b.sub}
+  return{principal:p,profit:w,rebate:r,total:p+w+r,winType:wt};
+}
+function calcRisk(b,n){return calcPay(b,{temaNum:n,hitZods:new Set([ga(n).zod]),hitTails:new Set([n%10])})}
+
+// ===== 操作 =====
+function updateHeader(){
+  const tot=bets.reduce((a,b)=>a+b.amt,0);
+  document.getElementById('hdr-total').textContent='总投注 ¥'+tot.toLocaleString();
+  document.getElementById('hdr-year').textContent=ZOD_YEAR+ZOD_YEAR_ANIMAL+'年';
+}
+function doStats(){
+  const text=document.getElementById('raw').value.trim();
+  if(!text){toast('请先粘贴注单');return}
+  const{bets:bs,errs}=parseText(text);
+  if(!bs.length){toast('无法识别，请检查格式');return}
+  bets=bs;saveBets();
+  updateHeader();
+  toast('✓ '+bs.length+'注 · ¥'+bs.reduce((a,b)=>a+b.amt,0).toLocaleString()+(errs.length?' · '+errs.length+'行未识别':''));
+  go('stats',document.querySelectorAll('.bnav button')[1]);
+}
+function previewParse(){
+  const text=document.getElementById('raw').value.trim(),box=document.getElementById('preview-box');
+  if(!text){box.style.display='none';return}
+  const{bets:bs,log,errs}=parseText(text),tot=bs.reduce((a,b)=>a+b.amt,0);
+  box.innerHTML='<div class="card-title">解析预览</div>'+log.map(l=>`<div class="log-item ${l.ok?'ok':'err'}">${l.ok?'✓':'✗'} ${l.line}<br><span style="color:var(--text3)">${l.detail}</span></div>`).join('')+`<div class="hero" style="font-size:22px">¥${tot.toLocaleString()}</div><div class="hint">${errs.length?'有'+errs.length+'行未识别':'全部识别成功'}</div>`;
+  box.style.display='block';
+}
+function clearInput(){document.getElementById('raw').value='';document.getElementById('preview-box').style.display='none'}
+function fillDemo(){document.getElementById('raw').value='猪鸡狗猴各号50\n01 02 03 各100\n平特鸡鼠各500\n尾0 500'}
+
+function renderStats(){
+  if(!bets.length){document.getElementById('stats-kpi').innerHTML='';document.getElementById('stats-top').innerHTML='<div class="empty">请先录入并统计</div>';return}
+  const tot=bets.reduce((a,b)=>a+b.amt,0),tm={},px={};
+  bets.forEach(b=>{if(b.type==='tema')tm[b.num]=(tm[b.num]||0)+b.amt;else if(b.type==='ptx')px[b.sub]=(px[b.sub]||0)+b.amt});
+  const keys=Object.keys(tm).map(Number).sort((a,b)=>tm[b]-tm[a]),tt=keys.reduce((s,n)=>s+tm[n],0),pt=Object.values(px).reduce((a,b)=>a+b,0);
+  document.getElementById('stats-kpi').innerHTML=`
+    <div class="kpi-item"><div class="lb">总投注</div><div class="vl" style="color:var(--blue)">¥${tot.toLocaleString()}</div></div>
+    <div class="kpi-item"><div class="lb">特码叠加</div><div class="vl" style="color:var(--yellow)">¥${tt.toLocaleString()}</div></div>
+    <div class="kpi-item"><div class="lb">平特肖</div><div class="vl" style="color:var(--purple)">¥${pt.toLocaleString()}</div></div>
+    <div class="kpi-item"><div class="lb">覆盖号码</div><div class="vl">${keys.length}个</div></div>`;
+  document.getElementById('stats-top').innerHTML=keys.slice(0,15).map((n,i)=>`<div class="list-row"><span>${i+1}. ${String(n).padStart(2,'0')} ${ZOD_E[NUM_ZOD[n]]}${NUM_ZOD[n]}</span><strong>¥${tm[n].toLocaleString()}</strong></div>`).join('')||'<div class="empty">无特码</div>';
+  const mx=keys.length?tm[keys[0]]:0;
+  let h='';for(let n=1;n<=49;n++){const a=tm[n]||0,r=mx?a/mx:0;h+=`<div class="hcell" style="background:rgba(74,159,255,${0.08+r*0.7})"><div class="n">${String(n).padStart(2,'0')}</div><div class="a">${a?'¥'+a:'-'}</div></div>`}
+  document.getElementById('stats-heat').innerHTML=h;
+  document.getElementById('stats-other').innerHTML=Object.keys(px).length?Object.entries(px).sort((a,b)=>b[1]-a[1]).map(([z,v])=>`<div class="list-row"><span>${ZOD_E[z]}${z}</span><strong>¥${v.toLocaleString()}</strong></div>`).join(''):'<div class="empty">无平特肖</div>';
+}
+
+function renderRisk(){
+  if(!bets.length){document.getElementById('risk-kpi').innerHTML='<div class="empty">请先统计</div>';return}
+  const tot=bets.reduce((a,b)=>a+b.amt,0),exp={};
+  for(let n=1;n<=49;n++){let p=0,w=0,r=0;bets.forEach(b=>{const x=calcRisk(b,n);p+=x.principal;w+=x.profit;r+=x.rebate});exp[n]={total:p+w+r,principal:p,profit:w,rebate:r,net:p+w+r-tot}}
+  const vals=Object.values(exp).map(v=>v.total),worst=+Object.entries(exp).sort((a,b)=>b[1].total-a[1].total)[0][0],wv=exp[worst];
+  document.getElementById('risk-kpi').innerHTML=`
+    <div class="kpi-item"><div class="lb">总投注</div><div class="vl">¥${tot.toLocaleString()}</div></div>
+    <div class="kpi-item"><div class="lb">最大赔付</div><div class="vl" style="color:var(--red)">¥${Math.round(wv.total).toLocaleString()}</div></div>`;
+  const ratio=wv.total/tot;
+  document.getElementById('risk-banner').innerHTML=`<div style="font-size:14px;line-height:1.6">${ratio>1.3?'<span style="color:var(--red)">⚠ 高风险</span>':'<span style="color:var(--green)">✓ 风险可控</span>'} · 最坏号 <strong>${String(worst).padStart(2,'0')}</strong> · 庄家亏 ¥${Math.round(wv.net).toLocaleString()}</div><div class="hint">赔付含本金+赢利+回水</div>`;
+  const sorted=Object.entries(exp).sort((a,b)=>b[1].total-a[1].total).slice(0,5);
+  document.getElementById('risk-top').innerHTML=sorted.map(([n,v],i)=>`<div class="list-row" onclick="showRisk(${n})"><span>${i+1}. ${String(n).padStart(2,'0')} ${NUM_ZOD[n]}</span><span style="color:var(--red)">¥${Math.round(v.total).toLocaleString()}</span></div>`).join('');
+  const mn=Math.min(...vals),mx=Math.max(...vals,1);let g='';
+  for(let n=1;n<=49;n++){const v=exp[n],r=(v.total-mn)/(mx-mn||1),loss=v.net>0;
+    g+=`<div class="hcell" style="background:${loss?`rgba(255,77,77,${0.1+r*0.6})`:`rgba(46,204,138,${0.06+r*0.3})`}" onclick="showRisk(${n})"><div class="n">${String(n).padStart(2,'0')}</div><div class="a">${loss?'亏':'赚'}</div></div>`}
+  document.getElementById('risk-grid').innerHTML=g;
+}
+function showRisk(n){
+  const tot=bets.reduce((a,b)=>a+b.amt,0);let s={p:0,w:0,r:0,t:0};
+  bets.forEach(b=>{const x=calcRisk(b,n);s.p+=x.principal;s.w+=x.profit;s.r+=x.rebate;s.t+=x.total});
+  document.getElementById('sheet-body').innerHTML=`<div class="sheet-handle"></div><h3 style="margin-bottom:8px">${String(n).padStart(2,'0')}号 ${ZOD_E[NUM_ZOD[n]]}${NUM_ZOD[n]}</h3><div class="hero" style="font-size:22px;color:${s.t>tot?'var(--red)':'var(--green)'}">${s.t>tot?'亏':'赚'} ¥${Math.round(Math.abs(s.t-tot)).toLocaleString()}</div><div class="list-row"><span>本金</span><span>¥${Math.round(s.p).toLocaleString()}</span></div><div class="list-row"><span>赢利</span><span>¥${Math.round(s.w).toLocaleString()}</span></div><div class="list-row"><span>回水</span><span>¥${Math.round(s.r).toLocaleString()}</span></div><div class="list-row"><span>总赔付</span><strong>¥${Math.round(s.t).toLocaleString()}</strong></div><button class="btn btn-secondary" style="margin-top:12px" onclick="closeSheet()">关闭</button>`;
+  document.getElementById('sheet').classList.add('on');
+}
+
+function initBallInputs(){
+  const g=document.getElementById('ball-inputs');if(g.children.length)return;
+  const lbl=['正1','正2','正3','正4','正5','正6','特码'];
+  g.innerHTML=Array.from({length:7},(_,i)=>`<div class="ball-in"><label${i===6?' style="color:var(--red)"':''}>${lbl[i]}</label><input type="number" min="1" max="49" id="b${i+1}" inputmode="numeric"></div>`).join('');
+}
+function quickParse(){
+  const raw=document.getElementById('quickfill').value.trim();if(!raw)return;
+  const nums=[],re=/\d{1,2}/g;let m;while((m=re.exec(raw))!==null){const n=+m[0];if(n>=1&&n<=49)nums.push(n)}
+  for(let i=0;i<7;i++){const el=document.getElementById('b'+(i+1));if(el)el.value=nums[i]||''}
+}
+function doSettle(){
+  const balls=[];for(let i=1;i<=7;i++){const v=+document.getElementById('b'+i).value;if(!(v>=1&&v<=49)){toast('请填完整7个号码');return}balls.push(v)}
+  if(!bets.length){toast('请先统计注单');return}
+  const ctx={temaNum:balls[6],hitZods:new Set(balls.map(n=>ga(n).zod)),hitTails:new Set(balls.map(n=>n%10))};
+  let totB=0,sum={p:0,w:0,r:0,t:0},wins=[];
+  bets.forEach(b=>{totB+=b.amt;const x=calcPay(b,ctx);sum.p+=x.principal;sum.w+=x.profit;sum.r+=x.rebate;sum.t+=x.total;if(x.total>0)wins.push({...b,...x})});
+  const pnl=sum.t-totB;
+  document.getElementById('settle-out').innerHTML=`
+    <div class="card"><div class="hero" style="color:${pnl<0?'var(--green)':'var(--red)'}">${pnl<0?'+':'-'}¥${Math.round(Math.abs(pnl)).toLocaleString()}</div>
+    <div class="hint" style="text-align:center">${pnl<0?'庄家盈利':'庄家亏损'} · 带本金计算</div>
+    <div class="kpi" style="margin-top:10px">
+      <div class="kpi-item"><div class="lb">本金</div><div class="vl">¥${Math.round(sum.p).toLocaleString()}</div></div>
+      <div class="kpi-item"><div class="lb">赢利</div><div class="vl">¥${Math.round(sum.w).toLocaleString()}</div></div>
+      <div class="kpi-item"><div class="lb">回水</div><div class="vl">¥${Math.round(sum.r).toLocaleString()}</div></div>
+      <div class="kpi-item"><div class="lb">派彩合计</div><div class="vl" style="color:var(--yellow)">¥${Math.round(sum.t).toLocaleString()}</div></div>
+    </div></div>
+    <div class="card"><div class="card-title">派彩 ${wins.length} 笔</div>${wins.slice(0,30).map(b=>`<div class="list-row"><span>${b.label||b.num} <span class="badge b${b.type}">${TL[b.type]}</span></span><span>¥${Math.round(b.total).toLocaleString()}</span></div>`).join('')}</div>`;
+  toast('结算完成');
+}
+
+function renderZodList(){
+  document.getElementById('z-year-lbl').textContent=ZOD_YEAR+ZOD_YEAR_ANIMAL+'年';
+  document.getElementById('zod-list').innerHTML=ZOD_ORDER.map(z=>`<div class="zod-row"><span>${ZOD_E[z]}</span><span>${z}</span><input type="text" id="mz-${z}" value="${(ZOD_NUMS[z]||[]).map(n=>String(n).padStart(2,'0')).join(' ')}"></div>`).join('');
+}
+function parseNums(s){const x=new Set();(s.match(/\d{1,2}/g)||[]).forEach(t=>{const n=+t;if(n>=1&&n<=49)x.add(n)});return[...x]}
+function autoGenZod(){ZOD_NUMS=buildZodiacByYear(ZOD_YEAR_ANIMAL);rebuildNumZod();renderZodList();toast('已自动生成')}
+function loadPreset(y){ZOD_YEAR=y;ZOD_YEAR_ANIMAL=YEAR_ANIMAL[y]||'马';ZOD_NUMS=buildZodiacByYear(ZOD_YEAR_ANIMAL);rebuildNumZod();renderZodList();toast(y+'年已加载')}
+function saveZodiac(){
+  const m={};ZOD_ORDER.forEach(z=>m[z]=parseNums(document.getElementById('mz-'+z).value));
+  const all=[];ZOD_ORDER.forEach(z=>m[z].forEach(n=>all.push(n)));
+  if(all.length!==49||new Set(all).size!==49){toast('号码须1-49各出现一次');return}
+  ZOD_NUMS=m;rebuildNumZod();localStorage.setItem('lhc_zodiac_v5',JSON.stringify({year:ZOD_YEAR,yearAnimal:ZOD_YEAR_ANIMAL,nums:ZOD_NUMS}));
+  document.getElementById('hdr-year').textContent=ZOD_YEAR+ZOD_YEAR_ANIMAL+'年';toast('生肖卡已保存');
+}
+function saveOdds(){const o={};['tema','huishui','ptx','wei','zod'].forEach(k=>o[k]=document.getElementById('o-'+k).value);localStorage.setItem('lhc_odds_v5',JSON.stringify(o));toast('赔率已保存')}
+function saveBets(){localStorage.setItem('lhc_mobile_bets',JSON.stringify({text:document.getElementById('raw').value,bets}))}
+function loadAll(){
+  try{const z=localStorage.getItem('lhc_zodiac_v5');if(z){const d=JSON.parse(z);if(d.nums){ZOD_NUMS=d.nums;ZOD_YEAR=d.year||2026;ZOD_YEAR_ANIMAL=d.yearAnimal||'马'}}}catch(e){}
+  try{const o=localStorage.getItem('lhc_odds_v5');if(o){Object.entries(JSON.parse(o)).forEach(([k,v])=>{const el=document.getElementById('o-'+k);if(el)el.value=v})}}catch(e){}
+  try{const b=localStorage.getItem('lhc_mobile_bets');if(b){const d=JSON.parse(b);if(d.text)document.getElementById('raw').value=d.text;if(d.bets){bets=d.bets;updateHeader()}}}catch(e){}
+  rebuildNumZod();updateHeader();
+}
+rebuildNumZod();loadAll();initBallInputs();
+</script>
+</body>
+</html>
