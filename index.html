@@ -78,7 +78,7 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
 <div class="app">
   <header class="topbar">
     <h1>六合彩统计器 <span id="hdr-year" style="font-size:13px;color:var(--blue)"></span></h1>
-    <div class="sub">手机版 · 安卓 / 苹果通用 · 可添加到主屏幕</div>
+    <div class="sub">手机专用 · 数据只存手机 · 电脑不留记录</div>
     <div class="total-pill" id="hdr-total">总投注 ¥0</div>
   </header>
 
@@ -149,13 +149,19 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
         <button class="btn btn-primary" style="margin-top:10px" onclick="saveOdds()">保存赔率</button>
       </div>
       <div class="card">
+        <div class="card-title">数据管理</div>
+        <button class="btn btn-danger" onclick="clearAllData()">清空全部数据</button>
+        <div class="hint" style="margin-top:8px">注单、赔率、生肖卡仅存在手机浏览器，关闭后可手动清空</div>
+      </div>
+      <div class="card">
         <div class="card-title">使用说明</div>
         <div class="hint">
           ① 粘贴注单 → 点「立即统计」<br>
           ② 查看统计 / 风险 / 结算<br>
           ③ <strong>苹果</strong>：Safari → 分享 → 添加到主屏幕<br>
           ④ <strong>安卓</strong>：Chrome → 菜单 → 添加到主屏幕<br>
-          ⑤ 数据保存在本机，无需联网
+          ⑤ 注单数据只保存在手机，不上传服务器<br>
+          ⑥ 电脑不留任何记录，请用手机打开
         </div>
       </div>
     </div>
@@ -184,6 +190,13 @@ const BLUE=new Set([3,4,9,10,14,15,20,25,26,31,36,37,41,42,47,48]);
 const TL={tema:'特码',zodiac:'生肖',ptx:'平特肖',wei:'尾数'};
 let ZOD_NUMS={鼠:[7,19,31,43],牛:[6,18,30,42],虎:[5,17,29,41],兔:[4,16,28,40],龙:[3,15,27,39],蛇:[2,14,26,38],马:[1,13,25,37,49],羊:[12,24,36,48],猴:[11,23,35,47],鸡:[10,22,34,46],狗:[9,21,33,45],猪:[8,20,32,44]};
 let NUM_ZOD={},ZOD_YEAR=2026,ZOD_YEAR_ANIMAL='马',bets=[];
+const IS_PHONE=/Android|iPhone|iPad|iPod|Mobile|webOS|Opera Mini/i.test(navigator.userAgent);
+const SK={zodiac:'lhc_m_zodiac',odds:'lhc_m_odds',bets:'lhc_m_bets'};
+function canStore(){return IS_PHONE}
+function stGet(k){if(!canStore())return null;try{return localStorage.getItem(k)}catch(e){return null}}
+function stSet(k,v){if(!canStore())return;try{localStorage.setItem(k,v)}catch(e){}}
+function stDel(k){if(!canStore())return;try{localStorage.removeItem(k)}catch(e){}}
+function clearAllData(){bets=[];document.getElementById('raw').value='';document.getElementById('preview-box').style.display='none';['lhc_m_bets','lhc_m_zodiac','lhc_m_odds','lhc_zodiac_v5','lhc_odds_v5','lhc_mobile_bets'].forEach(k=>{try{localStorage.removeItem(k)}catch(e){}});updateHeader();toast('已清空全部数据')}
 
 function rebuildNumZod(){NUM_ZOD={};ZOD_ORDER.forEach(z=>(ZOD_NUMS[z]||[]).forEach(n=>NUM_ZOD[n]=z))}
 function buildZodiacByYear(a){const s=ZOD_ORDER.indexOf(a),m={};ZOD_ORDER.forEach(z=>m[z]=[]);for(let n=1;n<=49;n++)m[ZOD_ORDER[(s-((n-1)%12)+12)%12]].push(n);return m}
@@ -346,15 +359,16 @@ function saveZodiac(){
   const m={};ZOD_ORDER.forEach(z=>m[z]=parseNums(document.getElementById('mz-'+z).value));
   const all=[];ZOD_ORDER.forEach(z=>m[z].forEach(n=>all.push(n)));
   if(all.length!==49||new Set(all).size!==49){toast('号码须1-49各出现一次');return}
-  ZOD_NUMS=m;rebuildNumZod();localStorage.setItem('lhc_zodiac_v5',JSON.stringify({year:ZOD_YEAR,yearAnimal:ZOD_YEAR_ANIMAL,nums:ZOD_NUMS}));
+  ZOD_NUMS=m;rebuildNumZod();stSet(SK.zodiac,JSON.stringify({year:ZOD_YEAR,yearAnimal:ZOD_YEAR_ANIMAL,nums:ZOD_NUMS}));
   document.getElementById('hdr-year').textContent=ZOD_YEAR+ZOD_YEAR_ANIMAL+'年';toast('生肖卡已保存');
 }
-function saveOdds(){const o={};['tema','huishui','ptx','wei','zod'].forEach(k=>o[k]=document.getElementById('o-'+k).value);localStorage.setItem('lhc_odds_v5',JSON.stringify(o));toast('赔率已保存')}
-function saveBets(){localStorage.setItem('lhc_mobile_bets',JSON.stringify({text:document.getElementById('raw').value,bets}))}
+function saveOdds(){const o={};['tema','huishui','ptx','wei','zod'].forEach(k=>o[k]=document.getElementById('o-'+k).value);stSet(SK.odds,JSON.stringify(o));toast('赔率已保存')}
+function saveBets(){stSet(SK.bets,JSON.stringify({text:document.getElementById('raw').value,bets}))}
 function loadAll(){
-  try{const z=localStorage.getItem('lhc_zodiac_v5');if(z){const d=JSON.parse(z);if(d.nums){ZOD_NUMS=d.nums;ZOD_YEAR=d.year||2026;ZOD_YEAR_ANIMAL=d.yearAnimal||'马'}}}catch(e){}
-  try{const o=localStorage.getItem('lhc_odds_v5');if(o){Object.entries(JSON.parse(o)).forEach(([k,v])=>{const el=document.getElementById('o-'+k);if(el)el.value=v})}}catch(e){}
-  try{const b=localStorage.getItem('lhc_mobile_bets');if(b){const d=JSON.parse(b);if(d.text)document.getElementById('raw').value=d.text;if(d.bets){bets=d.bets;updateHeader()}}}catch(e){}
+  if(!IS_PHONE)toast('请用手机打开，电脑不保存数据',4000);
+  try{const z=stGet(SK.zodiac);if(z){const d=JSON.parse(z);if(d.nums){ZOD_NUMS=d.nums;ZOD_YEAR=d.year||2026;ZOD_YEAR_ANIMAL=d.yearAnimal||'马'}}}catch(e){}
+  try{const o=stGet(SK.odds);if(o){Object.entries(JSON.parse(o)).forEach(([k,v])=>{const el=document.getElementById('o-'+k);if(el)el.value=v})}}catch(e){}
+  try{const b=stGet(SK.bets);if(b){const d=JSON.parse(b);if(d.text)document.getElementById('raw').value=d.text;if(d.bets){bets=d.bets;updateHeader()}}}catch(e){}
   rebuildNumZod();updateHeader();
 }
 rebuildNumZod();loadAll();initBallInputs();
