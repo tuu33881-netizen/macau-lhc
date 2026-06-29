@@ -108,7 +108,7 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
         </div>
         <textarea id="raw" placeholder="每行一条，例如：&#10;猪鸡狗猴各号50&#10;01 02 03 各100&#10;平特马3000&#10;尾0 500"></textarea>
         <div id="paste-status" class="paste-status"></div>
-        <div class="hint">支持 元/块/斤/纹/蚊 金额单位 · 符号自动忽略 · 每位客户单独添加</div>
+        <div class="hint">支持 元/块/斤/米/纹/文/蚊/圆/钱/刀 等单位 · 符号自动忽略 · 每位客户单独添加</div>
         <button class="btn btn-primary" style="margin-top:12px" onclick="addClient()">添加客户注单</button>
         <div class="btn-row">
           <button class="btn btn-secondary" onclick="previewParse()">预览解析</button>
@@ -232,7 +232,7 @@ const SK={zodiac:'lhc_m_zodiac',odds:'lhc_m_odds',bets:'lhc_m_bets',wx:'lhc_m_wx
 let lastClip='',wxAuto=true,wxAutoAdd=false;
 function allBets(){return clients.flatMap(c=>c.bets)}
 function setPasteStatus(msg,type){const el=document.getElementById('paste-status');if(!el)return;el.textContent=msg||'';el.className='paste-status'+(type?' '+type:'');if(msg)setTimeout(()=>{if(el.textContent===msg){el.textContent='';el.className='paste-status'}},3500)}
-function looksLikeBet(t){if(!t||t.trim().length<2)return false;t=t.trim();return/[鼠牛虎兔龙蛇马羊猴鸡狗猪]/.test(t)||/平特|尾\s*\d|各\s*[号数]?\s*\d|各号|各数|[元块斤纹蚊文圆]/.test(t)||/\b\d{1,2}\b.*各/.test(t)||/\d{1,2}[\s.,，、]+\d{1,2}/.test(t)}
+function looksLikeBet(t){if(!t||t.trim().length<2)return false;t=t.trim();return/[鼠牛虎兔龙蛇马羊猴鸡狗猪]/.test(t)||/平特|尾\s*\d|各\s*[号数名]?\s*\d|各号|各数|[元块斤米纹文蚊圆钱刀]/.test(t)||/\b\d{1,2}\b.*各/.test(t)||/\d{1,2}[\s.,，、]+\d{1,2}/.test(t)}
 function splitWeChatClip(text){
   const lines=text.split('\n').map(l=>l.trim()).filter(Boolean);
   if(lines.length>=2&&!looksLikeBet(lines[0])){
@@ -309,12 +309,17 @@ function closeSheet(){document.getElementById('sheet').classList.remove('on')}
 function ga(n){let bs='绿';if(RED.has(n))bs='红';else if(BLUE.has(n))bs='蓝';return{bs,zod:NUM_ZOD[n]||'?'}}
 
 // ===== 解析引擎 =====
-const MONEY_UNITS='元块斤纹蚊文圆钱'; // 金额单位（元/块/斤/纹/蚊等），识别后自动去掉
-const UNIT_RE='[元块斤纹蚊文圆钱]';
+// 金额口语单位：元块斤米纹文蚊圆钱刀等，识别后自动剥离
+const UNIT_CHARS='元块塊斤米纹紋文蚊圆圓钱錢刀';
+const UNIT_RE='['+UNIT_CHARS+']+';
+const UNIT_STRIP_RE=new RegExp('[平特尾肖连各名号数特码'+UNIT_CHARS+'\\s\\d]','g');
 function stripMoneyUnits(s){
-  return s.replace(new RegExp('(\\d+)\\s*'+UNIT_RE,'g'),'$1')
-    .replace(new RegExp(UNIT_RE+'\\s*(\\d+)','g'),'$1')
-    .replace(new RegExp(UNIT_RE,'g'),' ');
+  let p;do{p=s;
+    s=s.replace(new RegExp('(\\d+)\\s*'+UNIT_RE,'g'),'$1')
+     .replace(new RegExp(UNIT_RE+'\\s*(\\d+)','g'),'$1')
+     .replace(new RegExp(UNIT_RE,'g'),' ');
+  }while(s!==p);
+  return s;
 }
 function sanitizeLine(l){
   return stripMoneyUnits(l.trim().replace(/[^\u4e00-\u9fff\d]/g,' ')
@@ -322,12 +327,12 @@ function sanitizeLine(l){
     .replace(/\s+/g,' ').trim());
 }
 function extractZods(t){const f=[];(t.match(/[鼠牛虎兔龙蛇马羊猴鸡狗猪]/g)||[]).forEach(c=>{if(ZOD_ORDER.includes(c))f.push(c)});return f}
-function onlyZods(t){return extractZods(t.replace(/[平特尾肖连各名号数特码元块斤纹蚊文圆钱\s\d]/g,''))}
+function onlyZods(t){return extractZods(t.replace(UNIT_STRIP_RE,''))}
 function extractNums(t){const s=new Set();(t.match(/\d{1,2}/g)||[]).forEach(x=>{const n=+x;if(n>=1&&n<=49)s.add(n)});return[...s].sort((a,b)=>a-b)}
 function extractAmt(s){
-  let m=s.match(new RegExp('各\\s*[号数]?\\s*(\\d+)\\s*(?:'+UNIT_RE+')?\\s*$'));
+  let m=s.match(new RegExp('各\\s*[号数名]?\\s*(\\d+)\\s*(?:'+UNIT_RE+')?\\s*$'));
   if(m)return{amt:+m[1],pre:s.slice(0,s.length-m[0].length).trim()};
-  m=s.match(new RegExp('(\\d+)\\s*'+UNIT_RE+'\\s*$'));
+  m=s.match(new RegExp('(\\d+)\\s*(?:'+UNIT_RE+')\\s*$'));
   if(m)return{amt:+m[1],pre:s.slice(0,s.length-m[0].length).trim()};
   const p=s.trim().split(/\s+/);if(p.length>=2){const l=+p[p.length-1];if(l>=10)return{amt:l,pre:p.slice(0,-1).join(' ')}}
   return null;
@@ -336,12 +341,12 @@ function splitMultiGe(l){const m=[...l.matchAll(new RegExp('(.+?各\\s*\\d+\\s*(
 function parseLineSingle(seg,raw){
   const line=sanitizeLine(seg);if(!line)return null;raw=raw||seg;
   if(line.includes('平特')){
-    let m=line.match(/^平特\s*肖?\s*(.+?)\s*各\s*(\d+)\s*$/);if(m){const z=onlyZods(m[1]),a=+m[2];if(z.length&&a>0)return z.map(s=>({type:'ptx',sub:s,amt:a,label:'平特'+s}))}
-    m=line.match(/^平特\s*肖?\s*(.+?)\s*(\d+)\s*$/);if(m){const b=m[1],a=+m[2],z=onlyZods(b);if(z.length&&a>0&&!/\d/.test(b))return z.map(s=>({type:'ptx',sub:s,amt:a,label:'平特'+s}))}
+    let m=line.match(new RegExp('^平特\\s*肖?\\s*(.+?)\\s*各\\s*(\\d+)\\s*(?:'+UNIT_RE+')?\\s*$'));if(m){const z=onlyZods(m[1]),a=+m[2];if(z.length&&a>0)return z.map(s=>({type:'ptx',sub:s,amt:a,label:'平特'+s}))}
+    m=line.match(new RegExp('^平特\\s*肖?\\s*(.+?)\\s*(\\d+)\\s*(?:'+UNIT_RE+')?\\s*$'));if(m){const b=m[1],a=+m[2],z=onlyZods(b);if(z.length&&a>0&&!/\d/.test(b))return z.map(s=>({type:'ptx',sub:s,amt:a,label:'平特'+s}))}
   }
-  let m=line.match(/^尾\s*数?\s*(\d)\s+(\d+)\s*$/);if(m){const t=+m[1],a=+m[2];if(a>0)return[{type:'wei',sub:t,amt:a,label:'尾'+t}]}
+  let m=line.match(new RegExp('^尾\\s*数?\\s*(\\d)\\s+(\\d+)\\s*(?:'+UNIT_RE+')?\\s*$'));if(m){const t=+m[1],a=+m[2];if(a>0)return[{type:'wei',sub:t,amt:a,label:'尾'+t}]}
   const ex=extractAmt(line);if(!ex)return null;const{amt,pre}=ex;if(amt<=0)return null;
-  const z=onlyZods(pre),nums=extractNums(pre.replace(/各\s*[号数]?/g,''));
+  const z=onlyZods(pre),nums=extractNums(pre.replace(/各\s*[号数名]?/g,''));
   if(z.length>=2){const r=[];z.forEach(s=>ZOD_NUMS[s].forEach(n=>r.push({type:'tema',num:n,amt,label:String(n).padStart(2,'0'),fromZod:s})));return r}
   if(z.length===1&&nums.length===0)return[{type:'zodiac',sub:z[0],amt,label:z[0]}];
   if(nums.length)return nums.map(n=>({type:'tema',num:n,amt,label:String(n).padStart(2,'0')}));
@@ -413,7 +418,7 @@ function previewParse(){
   box.style.display='block';
 }
 function clearInput(){document.getElementById('raw').value='';document.getElementById('cname').value='';document.getElementById('preview-box').style.display='none';setPasteStatus('')}
-function fillDemo(){document.getElementById('raw').value='猪鸡狗猴各号50\n01 02 03 各100\n平特鸡鼠各500\n尾0 500'}
+function fillDemo(){document.getElementById('raw').value='猪鸡狗猴各号50元\n01 02 03 各100块\n平特鸡鼠各500米\n尾0 500纹\n羊各数100斤'}
 
 function renderStats(){
   const bets=allBets();
