@@ -114,7 +114,7 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
         </div>
         <textarea id="raw" placeholder="每行一条，例如：&#10;猪鸡狗猴各号50&#10;01 02 03 各100&#10;平特马3000&#10;尾0 500"></textarea>
         <div id="paste-status" class="paste-status"></div>
-        <div class="hint">支持 牛各号/各数/各斤/名20 等展开特码 · 元块斤米纹等单位 · 每位客户单独添加</div>
+        <div class="hint">支持 -/:号码、平特:马200、格数、11/100、句号分段等 · 每位客户单独添加</div>
         <button class="btn btn-primary" style="margin-top:12px" onclick="addClient()">添加客户注单</button>
         <div class="btn-row">
           <button class="btn btn-secondary" onclick="previewParse()">预览解析</button>
@@ -354,14 +354,38 @@ function stripMoneyUnits(s){
 }
 function normalizeGeLine(l){
   l=stripMoneyUnits(l.trim());
+  l=l.replace(/[…．.]{2,}/g,' ').replace(/…+/g,' ');
+  l=l.replace(/格\s*数/g,'各').replace(/特\s*各/g,'各');
   l=l.replace(/各\s*数/g,'各').replace(/各\s*号/g,'各').replace(/各\s*名/g,'各').replace(/各\s*斤/g,'各');
   l=l.replace(/([^\d\s])(名)(\d+)/g,'$1各$3').replace(/(^|[^\d])名\s*(\d+)/g,'$1各$2');
   return l;
 }
+function splitSubLines(line){
+  const out=[];
+  line.split(/[。\n；;]+/).forEach(chunk=>{
+    chunk.split(/[,，](?=[.\d]|\d{1,2}[-:：/])/).forEach(part=>{const t=part.trim();if(t)out.push(t);});
+  });
+  return out.length?out:[line.trim()];
+}
+function sepNumSlash(l){
+  l=l.replace(/(\d{1,2})\s*\/\s*(\d{1,2})(?=\D|$)/g,'$1 $2');
+  let p;do{p=l;l=l.replace(/(\d{1,2})[-－—:：](\d{1,2})/g,'$1 $2');}while(l!==p);
+  return l;
+}
 function sanitizeLine(l){
-  return normalizeGeLine(l).replace(/[^\u4e00-\u9fff\d]/g,' ')
+  return sepNumSlash(normalizeGeLine(l)).replace(/[^\u4e00-\u9fff\d]/g,' ')
     .replace(/([\u4e00-\u9fff])(\d)/g,'$1 $2').replace(/(\d)([\u4e00-\u9fff])/g,'$1 $2')
     .replace(/\s+/g,' ').trim();
+}
+function parsePingTeRaw(seg){
+  const m=seg.trim().match(/平特\s*[:：]?\s*([鼠牛虎兔龙蛇马羊猴鸡狗猪])[^\d]*?(\d+)\s*$/);
+  if(m){const a=+m[2];if(a>0)return[{type:'ptx',sub:m[1],amt:a,label:'平特'+m[1]}];}
+  return null;
+}
+function parseSlashBet(seg){
+  const m=seg.trim().match(/^(\d{1,2})\s*\/\s*(\d{2,})\s*$/);
+  if(m){const n=+m[1],a=+m[2];if(n>=1&&n<=49&&a>0)return[{type:'tema',num:n,amt:a,label:String(n).padStart(2,'0'),numCount:1}];}
+  return null;
 }
 function expandZodTema(zo,amt){
   const pool=ZOD_NUMS[zo].length;
@@ -383,7 +407,10 @@ function extractAmt(s){
 }
 function splitMultiGe(l){const m=[...l.matchAll(new RegExp('(.+?(?:各|名)\\s*\\d+\\s*(?:'+UNIT_RE+')?)','g'))].map(x=>x[1].trim());return m.length>1?m:[l]}
 function parseLineSingle(seg,raw){
-  const line=sanitizeLine(seg);if(!line)return null;raw=raw||seg;
+  raw=raw||seg;
+  const slash=parseSlashBet(seg);if(slash)return slash;
+  const pt=parsePingTeRaw(seg);if(pt)return pt;
+  const line=sanitizeLine(seg);if(!line)return null;
   if(line.includes('平特')){
     let m=line.match(new RegExp('^平特\\s*肖?\\s*(.+?)\\s*各\\s*(\\d+)\\s*(?:'+UNIT_RE+')?\\s*$'));if(m){const z=onlyZods(m[1]),a=+m[2];if(z.length&&a>0)return z.map(s=>({type:'ptx',sub:s,amt:a,label:'平特'+s}))}
     m=line.match(new RegExp('^平特\\s*肖?\\s*(.+?)\\s*(\\d+)\\s*(?:'+UNIT_RE+')?\\s*$'));if(m){const b=m[1],a=+m[2],z=onlyZods(b);if(z.length&&a>0&&!/\d/.test(b))return z.map(s=>({type:'ptx',sub:s,amt:a,label:'平特'+s}))}
@@ -407,11 +434,13 @@ function parseText(text){
   const out=[],log=[],errs=[];
   text.split('\n').forEach(line=>{
     const t=line.trim();if(!t)return;
-    const raw=t,s=sanitizeLine(t);if(!s){errs.push(t);log.push({ok:false,line:t,detail:'空行'});return}
-    const parts=splitMultiGe(s),all=[];
-    for(const p of parts){const r=parseLineSingle(p,raw);if(r)all.push(...r)}
-    if(all.length){out.push(...all);log.push({ok:true,line:t,detail:all.length+'注 ¥'+all.reduce((a,b)=>a+b.amt,0)})}
-    else{errs.push(t);log.push({ok:false,line:t,detail:'无法识别'})}
+    splitSubLines(t).forEach(sub=>{
+      const s=sanitizeLine(sub);if(!s&& !parsePingTeRaw(sub)&&!parseSlashBet(sub)){return}
+      const parts=splitMultiGe(sanitizeLine(sub)||sub),all=[];
+      for(const p of parts){const r=parseLineSingle(p,sub);if(r)all.push(...r)}
+      if(all.length){out.push(...all);log.push({ok:true,line:sub,detail:all.length+'注 ¥'+all.reduce((a,b)=>a+b.amt,0)})}
+      else{errs.push(sub);log.push({ok:false,line:sub,detail:'无法识别'})}
+    });
   });
   return{bets:out,log,errs};
 }
