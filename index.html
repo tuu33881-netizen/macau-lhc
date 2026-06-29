@@ -426,7 +426,6 @@ function saveZodiac(){
 function saveOdds(){const o={};['tema','huishui','ptx','wei','zod'].forEach(k=>o[k]=document.getElementById('o-'+k).value);stSet(SK.odds,JSON.stringify(o));toast('赔率已保存')}
 function saveBets(){stSet(SK.bets,JSON.stringify({clients}))}
 function loadAll(){
-  if(!IS_PHONE)toast('请用手机打开，电脑不保存数据',4000);
   try{const z=stGet(SK.zodiac);if(z){const d=JSON.parse(z);if(d.nums){ZOD_NUMS=d.nums;ZOD_YEAR=d.year||2026;ZOD_YEAR_ANIMAL=d.yearAnimal||'马'}}}catch(e){}
   try{const o=stGet(SK.odds);if(o){Object.entries(JSON.parse(o)).forEach(([k,v])=>{const el=document.getElementById('o-'+k);if(el)el.value=v})}}catch(e){}
   try{
