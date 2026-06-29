@@ -114,7 +114,7 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
         </div>
         <textarea id="raw" placeholder="每行一条，例如：&#10;猪鸡狗猴各号50&#10;01 02 03 各100&#10;平特马3000&#10;尾0 500"></textarea>
         <div id="paste-status" class="paste-status"></div>
-        <div class="hint">支持 元/块/斤/米/纹/文/蚊/圆/钱/刀 等单位 · 符号自动忽略 · 每位客户单独添加</div>
+        <div class="hint">支持 牛各号/各数/各斤/名20 等展开特码 · 元块斤米纹等单位 · 每位客户单独添加</div>
         <button class="btn btn-primary" style="margin-top:12px" onclick="addClient()">添加客户注单</button>
         <div class="btn-row">
           <button class="btn btn-secondary" onclick="previewParse()">预览解析</button>
@@ -352,23 +352,36 @@ function stripMoneyUnits(s){
   }while(s!==p);
   return s;
 }
+function normalizeGeLine(l){
+  l=stripMoneyUnits(l.trim());
+  l=l.replace(/各\s*数/g,'各').replace(/各\s*号/g,'各').replace(/各\s*名/g,'各').replace(/各\s*斤/g,'各');
+  l=l.replace(/([^\d\s])(名)(\d+)/g,'$1各$3').replace(/(^|[^\d])名\s*(\d+)/g,'$1各$2');
+  return l;
+}
 function sanitizeLine(l){
-  return stripMoneyUnits(l.trim().replace(/[^\u4e00-\u9fff\d]/g,' ')
+  return normalizeGeLine(l).replace(/[^\u4e00-\u9fff\d]/g,' ')
     .replace(/([\u4e00-\u9fff])(\d)/g,'$1 $2').replace(/(\d)([\u4e00-\u9fff])/g,'$1 $2')
-    .replace(/\s+/g,' ').trim());
+    .replace(/\s+/g,' ').trim();
+}
+function expandZodTema(zo,amt){
+  const pool=ZOD_NUMS[zo].length;
+  return ZOD_NUMS[zo].map(n=>({type:'tema',num:n,amt,label:String(n).padStart(2,'0'),fromZod:zo,numCount:pool}));
+}
+function isZodTemaLine(line,pre){
+  return /各|名/.test(line)||/各|名/.test(pre);
 }
 function extractZods(t){const f=[];(t.match(/[鼠牛虎兔龙蛇马羊猴鸡狗猪]/g)||[]).forEach(c=>{if(ZOD_ORDER.includes(c))f.push(c)});return f}
 function onlyZods(t){return extractZods(t.replace(UNIT_STRIP_RE,''))}
 function extractNums(t){const s=new Set();(t.match(/\d{1,2}/g)||[]).forEach(x=>{const n=+x;if(n>=1&&n<=49)s.add(n)});return[...s].sort((a,b)=>a-b)}
 function extractAmt(s){
-  let m=s.match(new RegExp('各\\s*[号数名]?\\s*(\\d+)\\s*(?:'+UNIT_RE+')?\\s*$'));
+  let m=s.match(new RegExp('(?:各|名)\\s*(?:[号数])?\\s*(\\d+)\\s*(?:'+UNIT_RE+')?\\s*$'));
   if(m)return{amt:+m[1],pre:s.slice(0,s.length-m[0].length).trim()};
   m=s.match(new RegExp('(\\d+)\\s*(?:'+UNIT_RE+')\\s*$'));
   if(m)return{amt:+m[1],pre:s.slice(0,s.length-m[0].length).trim()};
   const p=s.trim().split(/\s+/);if(p.length>=2){const l=+p[p.length-1];if(l>=10)return{amt:l,pre:p.slice(0,-1).join(' ')}}
   return null;
 }
-function splitMultiGe(l){const m=[...l.matchAll(new RegExp('(.+?各\\s*\\d+\\s*(?:'+UNIT_RE+')?)','g'))].map(x=>x[1].trim());return m.length>1?m:[l]}
+function splitMultiGe(l){const m=[...l.matchAll(new RegExp('(.+?(?:各|名)\\s*\\d+\\s*(?:'+UNIT_RE+')?)','g'))].map(x=>x[1].trim());return m.length>1?m:[l]}
 function parseLineSingle(seg,raw){
   const line=sanitizeLine(seg);if(!line)return null;raw=raw||seg;
   if(line.includes('平特')){
@@ -377,13 +390,16 @@ function parseLineSingle(seg,raw){
   }
   let m=line.match(new RegExp('^尾\\s*数?\\s*(\\d)\\s+(\\d+)\\s*(?:'+UNIT_RE+')?\\s*$'));if(m){const t=+m[1],a=+m[2];if(a>0)return[{type:'wei',sub:t,amt:a,label:'尾'+t}]}
   const ex=extractAmt(line);if(!ex)return null;const{amt,pre}=ex;if(amt<=0)return null;
-  const z=onlyZods(pre),nums=extractNums(pre.replace(/各\s*[号数名]?/g,''));
+  const z=onlyZods(pre),nums=extractNums(pre.replace(/(?:各|名)\s*(?:[号数])?/g,''));
   if(z.length>=2){
     const pool=z.reduce((s,zo)=>s+ZOD_NUMS[zo].length,0),r=[];
     z.forEach(s=>ZOD_NUMS[s].forEach(n=>r.push({type:'tema',num:n,amt,label:String(n).padStart(2,'0'),fromZod:s,numCount:pool})));
     return r;
   }
-  if(z.length===1&&nums.length===0)return[{type:'zodiac',sub:z[0],amt,label:z[0]}];
+  if(z.length===1&&nums.length===0){
+    if(isZodTemaLine(line,pre))return expandZodTema(z[0],amt);
+    return[{type:'zodiac',sub:z[0],amt,label:z[0]}];
+  }
   if(nums.length)return nums.map(n=>({type:'tema',num:n,amt,label:String(n).padStart(2,'0'),numCount:nums.length}));
   return null;
 }
@@ -467,7 +483,7 @@ function previewParse(){
   box.style.display='block';
 }
 function clearInput(){document.getElementById('raw').value='';document.getElementById('cname').value='';document.getElementById('preview-box').style.display='none';setPasteStatus('')}
-function fillDemo(){document.getElementById('raw').value='猪鸡狗猴各号50元\n01 02 03 各100块\n平特鸡鼠各500米\n尾0 500纹\n羊各数100斤'}
+function fillDemo(){document.getElementById('raw').value='牛各号50元\n猪鸡狗猴各数50\n羊各斤100\n01.02.03各30\n26.41.32名20\n平特马3000块\n尾0 500'}
 
 function renderStats(){
   const bets=allBets();
