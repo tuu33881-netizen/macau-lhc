@@ -171,17 +171,15 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
       <div class="card">
         <div class="card-title">赔率（带本金）</div>
         <div class="zod-row"><span>特码赔率</span><input type="number" id="o-tema" value="47" step="0.5"></div>
-        <div class="zod-row"><span>回水%</span><input type="number" id="o-huishui" value="1" step="0.1" oninput="updateRebateHint()"></div>
-        <div class="zod-row"><span>平特肖</span><input type="number" id="o-ptx" value="1" step="0.1"></div>
-        <div class="zod-row"><span>平特尾</span><input type="number" id="o-wei" value="0.8" step="0.05"></div>
-        <div class="zod-row"><span>生肖</span><input type="number" id="o-zod" value="1" step="0.1"></div>
+        <div class="zod-row"><span>平特肖赔率</span><input type="number" id="o-ptx" value="1" step="0.1"></div>
+        <div class="zod-row"><span>平特尾赔率</span><input type="number" id="o-wei" value="0.8" step="0.05"></div>
+        <div class="zod-row"><span>生肖赔率</span><input type="number" id="o-zod" value="1" step="0.1"></div>
+        <div class="card-title" style="margin-top:14px">回水设置（手动，0=不回水）</div>
+        <div class="zod-row"><span>特码回水%</span><input type="number" id="o-huishui" value="1" step="0.1" min="0" oninput="updateRebateHint()"></div>
+        <div class="zod-row"><span>平特肖回水%</span><input type="number" id="o-huishui-ptx" value="0" step="0.1" min="0" oninput="updateRebateHint()"></div>
+        <div class="zod-row"><span>尾数回水%</span><input type="number" id="o-huishui-wei" value="0" step="0.1" min="0" oninput="updateRebateHint()"></div>
         <button class="btn btn-primary" style="margin-top:10px" onclick="saveOdds()">保存赔率</button>
-        <div class="hint" id="rebate-hint" style="margin-top:10px">
-          <strong>回水计算（仅特码）：</strong><br>
-          回水 = 特码投注额 × 回水%（无论中否都退）<br>
-          例：特码投 ¥100、回水 1% → 回水 ¥1<br>
-          特码中奖派彩 = 本金 ¥100 + 赢利 ¥100×赔率 + 回水
-        </div>
+        <div class="hint" id="rebate-hint" style="margin-top:10px"></div>
       </div>
       <div class="card">
         <div class="card-title">数据管理</div>
@@ -309,12 +307,25 @@ function clearAllData(){clients=[];document.getElementById('raw').value='';docum
 function rebuildNumZod(){NUM_ZOD={};ZOD_ORDER.forEach(z=>(ZOD_NUMS[z]||[]).forEach(n=>NUM_ZOD[n]=z))}
 function buildZodiacByYear(a){const s=ZOD_ORDER.indexOf(a),m={};ZOD_ORDER.forEach(z=>m[z]=[]);for(let n=1;n<=49;n++)m[ZOD_ORDER[(s-((n-1)%12)+12)%12]].push(n);return m}
 function getO(k){return parseFloat(document.getElementById('o-'+k)?.value)||0}
-function temaBetTotal(bets){return(bets||allBets()).filter(b=>b.type==='tema').reduce((a,b)=>a+b.amt,0)}
-function calcRebateTotal(bets){return Math.round(temaBetTotal(bets)*getO('huishui')/100)}
+function betTotalByType(bets,type){return(bets||allBets()).filter(b=>b.type===type).reduce((a,b)=>a+b.amt,0)}
+function rebateRate(type){if(type==='tema')return getO('huishui')/100;if(type==='ptx')return getO('huishui-ptx')/100;if(type==='wei')return getO('huishui-wei')/100;return 0}
+function calcRebateByType(bets){
+  const b=bets||allBets();
+  return{
+    tema:Math.round(betTotalByType(b,'tema')*rebateRate('tema')),
+    ptx:Math.round(betTotalByType(b,'ptx')*rebateRate('ptx')),
+    wei:Math.round(betTotalByType(b,'wei')*rebateRate('wei'))
+  };
+}
+function calcRebateTotal(bets){const x=calcRebateByType(bets);return x.tema+x.ptx+x.wei}
 function updateRebateHint(){
   const el=document.getElementById('rebate-hint');if(!el)return;
-  const hs=getO('huishui'),tt=temaBetTotal(),rb=calcRebateTotal();
-  el.innerHTML=`<strong>回水计算（仅特码）：</strong><br>回水 = 特码投注额 × 回水%（无论中否都退）<br>例：特码投 ¥100、回水 ${hs}% → 回水 ¥${Math.round(100*hs/100)}<br>特码中奖派彩 = 本金 + 投注×${getO('tema')}赔率 + 回水${tt?`<br>当前特码 ¥${tt.toLocaleString()} → 回水合计 ¥${rb.toLocaleString()}`:''}`;
+  const rb=calcRebateByType(),tot=betTotalByType(null,'tema')+betTotalByType(null,'ptx')+betTotalByType(null,'wei');
+  el.innerHTML=`<strong>回水计算（无论中否都退，设为0即不回水）：</strong><br>
+    特码回水 = 特码投注 × ${getO('huishui')}%<br>
+    平特肖回水 = 平特肖投注 × ${getO('huishui-ptx')}%<br>
+    尾数回水 = 尾数投注 × ${getO('huishui-wei')}%<br>
+    派彩合计 = 本金 + 赢利 + 回水${tot?`<br>当前：特码 ¥${rb.tema.toLocaleString()} · 平肖 ¥${rb.ptx.toLocaleString()} · 尾数 ¥${rb.wei.toLocaleString()} · 合计 ¥${calcRebateTotal().toLocaleString()}`:''}`;
 }
 function toast(){}
 function go(id,btn){document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));document.getElementById('pg-'+id).classList.add('on');document.querySelectorAll('.bnav button').forEach(b=>b.classList.remove('on'));if(btn)btn.classList.add('on');if(id==='stats')renderStats();if(id==='risk')renderRisk();if(id==='more')renderZodList();if(id==='settle')initBallInputs()}
@@ -380,11 +391,19 @@ function parseText(text){
 
 // ===== 赔付（带本金）=====
 function calcPay(b,ctx){
-  const hs=getO('huishui')/100;let p=0,w=0,r=0,wt='',dt='';
-  if(b.type==='tema'){r=b.amt*hs;if(ctx.temaNum!=null&&b.num===ctx.temaNum){p=b.amt;w=b.amt*getO('tema');wt='特码命中'}else wt=r>0?'回水':'未中'}
-  else if(b.type==='zodiac'&&ctx.temaNum!=null&&b.sub===ga(ctx.temaNum).zod){p=b.amt;w=b.amt*getO('zod');wt='生肖命中'}
-  else if(b.type==='ptx'&&ctx.hitZods?.has(b.sub)){p=b.amt;w=b.amt*getO('ptx');wt='平特'+b.sub}
-  else if(b.type==='wei'&&ctx.hitTails?.has(b.sub)){p=b.amt;w=b.amt*getO('wei');wt='尾'+b.sub}
+  const rr=rebateRate(b.type);let p=0,w=0,r=rr>0?b.amt*rr:0,wt='';
+  if(b.type==='tema'){
+    if(ctx.temaNum!=null&&b.num===ctx.temaNum){p=b.amt;w=b.amt*getO('tema');wt='特码命中'}
+    else wt=r>0?'回水':'未中';
+  }else if(b.type==='zodiac'&&ctx.temaNum!=null&&b.sub===ga(ctx.temaNum).zod){
+    p=b.amt;w=b.amt*getO('zod');wt='生肖命中';
+  }else if(b.type==='ptx'){
+    if(ctx.hitZods?.has(b.sub)){p=b.amt;w=b.amt*getO('ptx');wt='平特'+b.sub}
+    else wt=r>0?'回水':'未中';
+  }else if(b.type==='wei'){
+    if(ctx.hitTails?.has(b.sub)){p=b.amt;w=b.amt*getO('wei');wt='尾'+b.sub}
+    else wt=r>0?'回水':'未中';
+  }
   return{principal:p,profit:w,rebate:r,total:p+w+r,winType:wt};
 }
 function calcRisk(b,n){return calcPay(b,{temaNum:n,hitZods:new Set([ga(n).zod]),hitTails:new Set([n%10])})}
@@ -443,14 +462,14 @@ function renderStats(){
     else if(b.type==='zodiac')zo[b.sub]=(zo[b.sub]||0)+b.amt;
     else if(b.type==='wei')wei[b.sub]=(wei[b.sub]||0)+b.amt;
   });
-  const keys=Object.keys(tm).map(Number).sort((a,b)=>tm[b]-tm[a]),tt=keys.reduce((s,n)=>s+tm[n],0),pt=Object.values(px).reduce((a,b)=>a+b,0),rb=calcRebateTotal(bets);
+  const keys=Object.keys(tm).map(Number).sort((a,b)=>tm[b]-tm[a]),tt=keys.reduce((s,n)=>s+tm[n],0),pt=Object.values(px).reduce((a,b)=>a+b,0),wt=Object.values(wei).reduce((a,b)=>a+b,0),rb=calcRebateByType(bets);
   document.getElementById('stats-kpi').innerHTML=`
     <div class="kpi-item"><div class="lb">总投注</div><div class="vl" style="color:var(--blue)">¥${tot.toLocaleString()}</div></div>
     <div class="kpi-item"><div class="lb">客户数</div><div class="vl">${clients.length}</div></div>
     <div class="kpi-item"><div class="lb">特码叠加</div><div class="vl" style="color:var(--yellow)">¥${tt.toLocaleString()}</div></div>
-    <div class="kpi-item"><div class="lb">特码回水</div><div class="vl" style="color:var(--green)">¥${rb.toLocaleString()}</div></div>
     <div class="kpi-item"><div class="lb">平特肖</div><div class="vl" style="color:var(--purple)">¥${pt.toLocaleString()}</div></div>
-    <div class="kpi-item"><div class="lb">回水比例</div><div class="vl">${getO('huishui')}%</div></div>`;
+    <div class="kpi-item"><div class="lb">尾数</div><div class="vl">¥${wt.toLocaleString()}</div></div>
+    <div class="kpi-item"><div class="lb">回水合计</div><div class="vl" style="color:var(--green)">¥${(rb.tema+rb.ptx+rb.wei).toLocaleString()}</div></div>`;
   document.getElementById('stats-clients').innerHTML=clients.map((c,i)=>{
     const ct=c.bets.reduce((a,b)=>a+b.amt,0);
     return`<div class="list-row"><span>${i+1}. ${c.name}</span><strong>¥${ct.toLocaleString()} · ${c.bets.length}注</strong></div>`;
@@ -557,7 +576,7 @@ function saveZodiac(){
   ZOD_NUMS=m;rebuildNumZod();stSet(SK.zodiac,JSON.stringify({year:ZOD_YEAR,yearAnimal:ZOD_YEAR_ANIMAL,nums:ZOD_NUMS}));
   document.getElementById('hdr-year').textContent=ZOD_YEAR+ZOD_YEAR_ANIMAL+'年';toast('生肖卡已保存');
 }
-function saveOdds(){const o={};['tema','huishui','ptx','wei','zod'].forEach(k=>o[k]=document.getElementById('o-'+k).value);stSet(SK.odds,JSON.stringify(o));toast('赔率已保存')}
+function saveOdds(){const o={};['tema','huishui','huishui-ptx','huishui-wei','ptx','wei','zod'].forEach(k=>o[k]=document.getElementById('o-'+k).value);stSet(SK.odds,JSON.stringify(o));updateRebateHint();toast('赔率已保存')}
 function saveBets(){stSet(SK.bets,JSON.stringify({clients}))}
 function loadAll(){
   try{const z=stGet(SK.zodiac);if(z){const d=JSON.parse(z);if(d.nums){ZOD_NUMS=d.nums;ZOD_YEAR=d.year||2026;ZOD_YEAR_ANIMAL=d.yearAnimal||'马'}}}catch(e){}
