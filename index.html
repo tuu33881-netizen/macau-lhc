@@ -78,6 +78,11 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
 .chip .x{color:var(--text3);font-size:16px;line-height:1;padding:0 2px}
 .chip .x:active{color:var(--red)}
 .name-row{margin-bottom:10px}
+.wechat-box{background:#0d2218;border:1px solid #1a4d32;border-radius:12px;padding:12px;margin-bottom:10px}
+.wechat-badge{display:inline-block;background:#07C160;color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px;margin-bottom:8px}
+.btn-wechat{background:#07C160;color:#fff;margin-top:8px}
+.paste-status{font-size:12px;min-height:18px;margin-top:8px;line-height:1.5}
+.paste-status.ok{color:var(--green)}.paste-status.err{color:var(--red)}
 </style>
 </head>
 <body>
@@ -93,10 +98,16 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
     <div id="pg-input" class="page on">
       <div class="card">
         <div class="card-title">粘贴注单</div>
+        <div id="wechat-box" class="wechat-box" style="display:none">
+          <div class="wechat-badge">微信已识别</div>
+          <div class="hint" style="margin-top:0">聊天里长按消息 → 复制 → 返回本页自动填入注单</div>
+          <button class="btn btn-wechat" onclick="pasteFromWeChat()">从微信粘贴注单</button>
+        </div>
         <div class="name-row">
           <input type="text" id="cname" placeholder="客户名称（可选，默认客户1、客户2…）">
         </div>
         <textarea id="raw" placeholder="每行一条，例如：&#10;猪鸡狗猴各号50&#10;01 02 03 各100&#10;平特马3000&#10;尾0 500"></textarea>
+        <div id="paste-status" class="paste-status"></div>
         <div class="hint">只认文字+数字，符号自动忽略 · 每位客户单独添加，不会覆盖已有注单</div>
         <button class="btn btn-primary" style="margin-top:12px" onclick="addClient()">添加客户注单</button>
         <div class="btn-row">
@@ -176,7 +187,19 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
         <div class="hint">
           ① 粘贴注单 → 填客户名 → 点「添加客户注单」<br>
           ② 可连续添加多位客户，再查看统计 / 风险 / 结算<br>
-          ③ 数据保存在本机浏览器，不上传服务器
+          ③ 数据保存在本机浏览器，不上传服务器<br>
+          ④ <strong>微信</strong>：复制注单后返回页面自动填入，或点「从微信粘贴注单」
+        </div>
+      </div>
+      <div class="card" id="wechat-settings" style="display:none">
+        <div class="card-title">微信粘贴</div>
+        <div class="zod-row" style="grid-template-columns:1fr auto;border:none">
+          <span>返回页面时自动读剪贴板</span>
+          <input type="checkbox" id="wx-auto" checked style="width:auto" onchange="saveWxSettings()">
+        </div>
+        <div class="zod-row" style="grid-template-columns:1fr auto;border:none">
+          <span>粘贴后自动添加客户</span>
+          <input type="checkbox" id="wx-auto-add" style="width:auto" onchange="saveWxSettings()">
         </div>
       </div>
     </div>
@@ -204,8 +227,74 @@ const BLUE=new Set([3,4,9,10,14,15,20,25,26,31,36,37,41,42,47,48]);
 const TL={tema:'特码',zodiac:'生肖',ptx:'平特肖',wei:'尾数'};
 let ZOD_NUMS={鼠:[7,19,31,43],牛:[6,18,30,42],虎:[5,17,29,41],兔:[4,16,28,40],龙:[3,15,27,39],蛇:[2,14,26,38],马:[1,13,25,37,49],羊:[12,24,36,48],猴:[11,23,35,47],鸡:[10,22,34,46],狗:[9,21,33,45],猪:[8,20,32,44]};
 let NUM_ZOD={},ZOD_YEAR=2026,ZOD_YEAR_ANIMAL='马',clients=[];
-const SK={zodiac:'lhc_m_zodiac',odds:'lhc_m_odds',bets:'lhc_m_bets'};
+const IS_WECHAT=/MicroMessenger/i.test(navigator.userAgent);
+const SK={zodiac:'lhc_m_zodiac',odds:'lhc_m_odds',bets:'lhc_m_bets',wx:'lhc_m_wx'};
+let lastClip='',wxAuto=true,wxAutoAdd=false;
 function allBets(){return clients.flatMap(c=>c.bets)}
+function setPasteStatus(msg,type){const el=document.getElementById('paste-status');if(!el)return;el.textContent=msg||'';el.className='paste-status'+(type?' '+type:'');if(msg)setTimeout(()=>{if(el.textContent===msg){el.textContent='';el.className='paste-status'}},3500)}
+function looksLikeBet(t){if(!t||t.trim().length<2)return false;t=t.trim();return/[鼠牛虎兔龙蛇马羊猴鸡狗猪]/.test(t)||/平特|尾\s*\d|各\s*[号数]?\s*\d|各号|各数/.test(t)||/\b\d{1,2}\b.*各/.test(t)||/\d{1,2}[\s.,，、]+\d{1,2}/.test(t)}
+function splitWeChatClip(text){
+  const lines=text.split('\n').map(l=>l.trim()).filter(Boolean);
+  if(lines.length>=2&&!looksLikeBet(lines[0])){
+    const body=lines.slice(1).join('\n');
+    if(looksLikeBet(body))return{name:lines[0].replace(/[:：]\s*$/,''),body};
+  }
+  return{body:text.trim()};
+}
+async function readClipboard(){
+  try{if(navigator.clipboard?.readText)return await navigator.clipboard.readText()}catch(e){}
+  return null;
+}
+function applyClipboardText(text,src){
+  if(!text)return false;
+  const parts=splitWeChatClip(text);
+  if(!looksLikeBet(parts.body))return false;
+  const raw=document.getElementById('raw'),cname=document.getElementById('cname');
+  if(raw.value.trim()===parts.body&&(!parts.name||cname.value.trim()===parts.name))return false;
+  raw.value=parts.body;
+  if(parts.name&&!cname.value.trim())cname.value=parts.name;
+  setPasteStatus(src==='auto'?'已自动填入微信复制的注单':'已粘贴注单','ok');
+  previewParse();
+  if(wxAutoAdd&&IS_WECHAT)setTimeout(()=>addClient(),120);
+  return true;
+}
+async function pasteFromWeChat(){
+  const text=await readClipboard();
+  if(applyClipboardText(text,'manual'))return;
+  setPasteStatus('请先在微信里长按消息并复制注单','err');
+}
+function tryAutoPaste(){
+  if(!IS_WECHAT||!wxAuto||document.hidden)return;
+  readClipboard().then(text=>{
+    if(!text||text===lastClip)return;
+    lastClip=text;
+    applyClipboardText(text,'auto');
+  });
+}
+function saveWxSettings(){
+  wxAuto=!!document.getElementById('wx-auto')?.checked;
+  wxAutoAdd=!!document.getElementById('wx-auto-add')?.checked;
+  stSet(SK.wx,JSON.stringify({auto:wxAuto,autoAdd:wxAutoAdd}));
+}
+function loadWxSettings(){
+  try{
+    const d=JSON.parse(stGet(SK.wx)||'{}');
+    wxAuto=d.auto!==false;wxAutoAdd=!!d.autoAdd;
+    const a=document.getElementById('wx-auto'),b=document.getElementById('wx-auto-add');
+    if(a)a.checked=wxAuto;if(b)b.checked=wxAutoAdd;
+  }catch(e){}
+}
+function initWeChat(){
+  if(!IS_WECHAT)return;
+  document.getElementById('wechat-box').style.display='block';
+  document.getElementById('wechat-settings').style.display='block';
+  loadWxSettings();
+  document.getElementById('raw').addEventListener('paste',()=>setTimeout(()=>{setPasteStatus('已粘贴','ok');previewParse()},0));
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)tryAutoPaste()});
+  window.addEventListener('pageshow',tryAutoPaste);
+  window.addEventListener('focus',tryAutoPaste);
+  setTimeout(tryAutoPaste,300);
+}
 function stGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
 function stSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
 function stDel(k){try{localStorage.removeItem(k)}catch(e){}}
@@ -305,7 +394,7 @@ function previewParse(){
   box.innerHTML='<div class="card-title">解析预览（当前输入）</div>'+log.map(l=>`<div class="log-item ${l.ok?'ok':'err'}">${l.ok?'✓':'✗'} ${l.line}<br><span style="color:var(--text3)">${l.detail}</span></div>`).join('')+`<div class="hero" style="font-size:22px">¥${tot.toLocaleString()}</div><div class="hint">${errs.length?'有'+errs.length+'行未识别':'全部识别成功'} · 点「添加客户注单」才会计入</div>`;
   box.style.display='block';
 }
-function clearInput(){document.getElementById('raw').value='';document.getElementById('cname').value='';document.getElementById('preview-box').style.display='none'}
+function clearInput(){document.getElementById('raw').value='';document.getElementById('cname').value='';document.getElementById('preview-box').style.display='none';setPasteStatus('')}
 function fillDemo(){document.getElementById('raw').value='猪鸡狗猴各号50\n01 02 03 各100\n平特鸡鼠各500\n尾0 500'}
 
 function renderStats(){
@@ -433,7 +522,7 @@ function loadAll(){
   }catch(e){}
   rebuildNumZod();renderClients();updateHeader();
 }
-rebuildNumZod();loadAll();initBallInputs();
+rebuildNumZod();loadAll();initBallInputs();initWeChat();
 </script>
 </body>
 </html>
