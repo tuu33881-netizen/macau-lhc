@@ -58,7 +58,7 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
 .list-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:14px}
 .list-row:last-child{border:none}
 .badge{font-size:10px;padding:2px 8px;border-radius:8px;font-weight:600}
-.btema{background:#1e1b3d;color:#8B6EFF}.bptx{background:#2d1325;color:#CC5EA8}.bzod{background:#0d2519;color:#2ECC8A}.bwei{background:#2d2010;color:#F5C842}
+.btema{background:#1e1b3d;color:#8B6EFF}.bptx{background:#2d1325;color:#CC5EA8}.bzod{background:#0d2519;color:#2ECC8A}.bwei{background:#2d2010;color:#F5C842}.bwin{background:#0d2a1a;color:#2ECC8A}.bclient{background:#1a2540;color:var(--blue)}
 .ball-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
 .ball-in{text-align:center}
 .ball-in label{font-size:10px;color:var(--text2);display:block;margin-bottom:4px}
@@ -490,29 +490,41 @@ function quickParse(){
 }
 function doSettle(){
   const balls=[];for(let i=1;i<=7;i++){const v=+document.getElementById('b'+i).value;if(!(v>=1&&v<=49)){toast('请填完整7个号码');return}balls.push(v)}
-  const bets=allBets();
-  if(!bets.length){toast('请先添加客户注单');return}
+  if(!clients.length){toast('请先添加客户注单');return}
   const ctx={temaNum:balls[6],hitZods:new Set(balls.map(n=>ga(n).zod)),hitTails:new Set(balls.map(n=>n%10))};
   let totB=0,sum={p:0,w:0,r:0,t:0},wins=[];
-  bets.forEach(b=>{totB+=b.amt;const x=calcPay(b,ctx);sum.p+=x.principal;sum.w+=x.profit;sum.r+=x.rebate;sum.t+=x.total;if(x.total>0)wins.push({...b,...x})});
+  const clientStats=clients.map(c=>{
+    let ct=0,cs={p:0,w:0,r:0,t:0},cWins=[];
+    c.bets.forEach(b=>{
+      totB+=b.amt;ct+=b.amt;
+      const x=calcPay(b,ctx);
+      cs.p+=x.principal;cs.w+=x.profit;cs.r+=x.rebate;cs.t+=x.total;
+      sum.p+=x.principal;sum.w+=x.profit;sum.r+=x.rebate;sum.t+=x.total;
+      if(x.total>0){const row={...b,...x,client:c.name};wins.push(row);cWins.push(row)}
+    });
+    const cp=cs.t-ct,hasWin=x=>x.profit>0,hasRebateOnly=cWins.length>0&&!cWins.some(hasWin);
+    return{name:c.name,bet:ct,pay:cs.t,pnl:cp,wins:cWins,winCount:cWins.length,hitWin:cWins.some(hasWin),rebateOnly:hasRebateOnly};
+  });
   const pnl=sum.t-totB;
-  const clientRows=clients.map(c=>{
-    let ct=0,cs={p:0,w:0,r:0,t:0};
-    c.bets.forEach(b=>{ct+=b.amt;const x=calcPay(b,ctx);cs.p+=x.principal;cs.w+=x.profit;cs.r+=x.rebate;cs.t+=x.total});
-    const cp=cs.t-ct;
-    return`<div class="list-row"><span>${c.name}</span><span style="color:${cp>0?'var(--red)':'var(--green)'}">${cp>0?'亏':'赚'} ¥${Math.round(Math.abs(cp)).toLocaleString()}</span></div>`;
+  const winClients=clientStats.filter(c=>c.winCount>0);
+  const clientRows=clientStats.map(c=>{
+    const badge=c.hitWin?'<span class="badge bwin">中奖</span>':c.rebateOnly?'<span class="badge bwei">回水</span>':'<span class="badge" style="background:var(--bg3);color:var(--text3)">未中</span>';
+    return`<div class="list-row"><span>${c.name} ${badge}</span><span style="font-size:13px;text-align:right">派彩 ¥${Math.round(c.pay).toLocaleString()}<br><span style="color:${c.pnl>0?'var(--red)':'var(--green)'}">庄家${c.pnl>0?'亏':'赚'} ¥${Math.round(Math.abs(c.pnl)).toLocaleString()}</span></span></div>`;
   }).join('');
+  const winClientRows=winClients.length?winClients.map(c=>`<div class="list-row"><span><span class="badge bclient">${c.name}</span> ${c.winCount}笔</span><strong style="color:var(--yellow)">¥${Math.round(c.pay).toLocaleString()}</strong></div>`).join(''):'<div class="empty">本期无派彩</div>';
+  const winDetail=wins.slice(0,50).map(b=>`<div class="list-row"><span><span class="badge bclient">${b.client}</span> ${b.label||b.num} <span class="badge b${b.type}">${TL[b.type]}</span>${b.winType?` <span style="font-size:11px;color:var(--text3)">${b.winType}</span>`:''}</span><span>¥${Math.round(b.total).toLocaleString()}</span></div>`).join('');
   document.getElementById('settle-out').innerHTML=`
     <div class="card"><div class="hero" style="color:${pnl<0?'var(--green)':'var(--red)'}">${pnl<0?'+':'-'}¥${Math.round(Math.abs(pnl)).toLocaleString()}</div>
-    <div class="hint" style="text-align:center">${pnl<0?'庄家盈利':'庄家亏损'} · 带本金计算 · ${clients.length}位客户</div>
+    <div class="hint" style="text-align:center">${pnl<0?'庄家盈利':'庄家亏损'} · 带本金计算 · ${clients.length}位客户 · ${winClients.length}位有派彩</div>
     <div class="kpi" style="margin-top:10px">
       <div class="kpi-item"><div class="lb">本金</div><div class="vl">¥${Math.round(sum.p).toLocaleString()}</div></div>
       <div class="kpi-item"><div class="lb">赢利</div><div class="vl">¥${Math.round(sum.w).toLocaleString()}</div></div>
       <div class="kpi-item"><div class="lb">回水</div><div class="vl">¥${Math.round(sum.r).toLocaleString()}</div></div>
       <div class="kpi-item"><div class="lb">派彩合计</div><div class="vl" style="color:var(--yellow)">¥${Math.round(sum.t).toLocaleString()}</div></div>
     </div></div>
-    <div class="card"><div class="card-title">各客户盈亏</div>${clientRows}</div>
-    <div class="card"><div class="card-title">派彩 ${wins.length} 笔</div>${wins.slice(0,30).map(b=>`<div class="list-row"><span>${b.label||b.num} <span class="badge b${b.type}">${TL[b.type]}</span></span><span>¥${Math.round(b.total).toLocaleString()}</span></div>`).join('')}</div>`;
+    <div class="card"><div class="card-title">中奖客户 ${winClients.length} 位</div>${winClientRows}</div>
+    <div class="card"><div class="card-title">各客户结算</div>${clientRows}</div>
+    <div class="card"><div class="card-title">派彩明细 ${wins.length} 笔（含客户名）</div>${winDetail||'<div class="empty">无</div>'}${wins.length>50?`<div class="hint">仅显示前50笔，共${wins.length}笔</div>`:''}</div>`;
   toast('结算完成');
 }
 
