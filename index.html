@@ -11,7 +11,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>六合彩统计器 v2026.6.30i</title>
+<title>六合彩统计器 v2026.6.30j</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
@@ -437,7 +437,50 @@ function parseText(text){
 }
 
 // ===== 赔付（中奖金额=赢利，不含本金）=====
-const PTX_ODDS=1,APP_VER='2026.6.30i';
+const PTX_ODDS=1,APP_VER='2026.6.30j';
+function betContentLabel(b){
+  if(b.type==='tema'&&b.num!=null)return String(b.num).padStart(2,'0')+'号';
+  if(b.label)return b.label;
+  if(b.sub)return b.sub;
+  return b.num!=null?String(b.num):'';
+}
+function buildSettleDetail(ctx){
+  const wins=[],clientStats=clients.map(c=>{
+    let cs={bet:0,winAmt:0,winPayout:0,winCount:0};
+    c.bets.forEach(b=>{
+      cs.bet+=b.amt;
+      const x=calcPay(b,ctx);
+      if(x.profit>0){
+        cs.winAmt+=x.winAmt;cs.winPayout+=x.pay;cs.winCount++;
+        wins.push({...b,...x,client:c.name});
+      }
+    });
+    return{name:c.name,...cs,hitWin:cs.winCount>0};
+  });
+  return{clientStats,wins};
+}
+function renderWinCustomers(clientStats){
+  const list=clientStats.filter(c=>c.hitWin);
+  if(!list.length)return'<div class="empty">本期无中奖客户</div>';
+  return list.map(c=>`<div class="list-row" style="align-items:flex-start">
+    <span><span class="badge bclient">${c.name}</span> ${c.winCount}笔中奖</span>
+    <span style="font-size:13px;text-align:right;line-height:1.5">下注 ¥${Math.round(c.bet).toLocaleString()}<br>
+    <span style="color:var(--yellow)">中奖 ¥${Math.round(c.winAmt).toLocaleString()}</span> · 
+    <span style="color:var(--green)">派彩 ¥${Math.round(c.winPayout).toLocaleString()}</span></span>
+  </div>`).join('');
+}
+function renderWinDetails(wins){
+  if(!wins.length)return'<div class="empty">无中奖明细</div>';
+  const rows=wins.slice(0,80).map(b=>`<div class="list-row" style="align-items:flex-start;gap:8px">
+    <span style="flex:1;min-width:0;line-height:1.5">
+      <span class="badge bclient">${b.client}</span> ${betContentLabel(b)} <span class="badge b${b.type}">${TL[b.type]}</span>
+      <div style="font-size:12px;color:var(--blue);margin-top:3px;font-weight:600">下注 ¥${Math.round(b.amt).toLocaleString()}</div>
+      ${b.winType?`<div style="font-size:11px;color:var(--text3)">${b.winType}</div>`:''}
+    </span>
+    <span style="flex-shrink:0;color:var(--yellow);font-weight:700;font-size:15px;padding-top:2px">派彩 ¥${Math.round(b.profit).toLocaleString()}</span>
+  </div>`).join('');
+  return rows+(wins.length>80?`<div class="hint">仅显示前80笔，共${wins.length}笔</div>`:'');
+}
 const REBATE_PCT=4;
 function isPtxBet(b){return b&&(b.type==='ptx'||/^平特/.test(b.label||''))}
 function ptxWinProfit(amt){return amt*PTX_ODDS}
@@ -621,8 +664,13 @@ function quickParse(){
 function doSettle(){
   const balls=[];for(let i=1;i<=7;i++){const v=+document.getElementById('b'+i).value;if(!(v>=1&&v<=49)){toast('请填完整7个号码');return}balls.push(v)}
   if(!clients.length){toast('请先添加客户注单');return}
-  const legacy=settleGrandLegacy({temaNum:balls[6],hitZods:new Set(balls.map(n=>ga(n).zod)),hitTails:new Set(balls.map(n=>n%10))});
-  document.getElementById('settle-out').innerHTML=renderPnlCard(legacy,balls);
+  const ctx={temaNum:balls[6],hitZods:new Set(balls.map(n=>ga(n).zod)),hitTails:new Set(balls.map(n=>n%10))};
+  const legacy=settleGrandLegacy(ctx);
+  const{clientStats,wins}=buildSettleDetail(ctx);
+  const winCount=clientStats.filter(c=>c.hitWin).length;
+  document.getElementById('settle-out').innerHTML=`${renderPnlCard(legacy,balls)}
+    <div class="card"><div class="card-title">中奖客户 ${winCount} 位</div>${renderWinCustomers(clientStats)}</div>
+    <div class="card"><div class="card-title">派彩明细 ${wins.length} 笔</div><div class="hint" style="margin-bottom:8px">派彩=赢利(不含本金)</div>${renderWinDetails(wins)}</div>`;
   toast('结算完成');
 }
 
