@@ -11,7 +11,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>六合彩统计器 v2026.6.30b</title>
+<title>六合彩统计器 v2026.6.30c</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
@@ -437,7 +437,29 @@ function parseText(text){
 }
 
 // ===== 赔付（中奖金额=下注+赢利，派彩=中奖金额+回水）=====
-const PTX_ODDS=1,APP_VER='2026.6.30b';
+const PTX_ODDS=1,APP_VER='2026.6.30c';
+function betContentLabel(b){
+  if(b.type==='tema'&&b.num!=null)return String(b.num).padStart(2,'0')+'号';
+  if(b.label)return b.label;
+  if(b.sub)return b.sub;
+  return b.num!=null?String(b.num):'';
+}
+function payoutProfit(b){return b.profit>0?b.profit:0}
+function renderWinDetailRow(b){
+  const content=betContentLabel(b),pay=payoutProfit(b);
+  let right='';
+  if(pay>0)right=`<strong style="color:var(--yellow);font-size:15px">派彩 ¥${Math.round(pay).toLocaleString()}</strong>`;
+  else if(b.rebate>0)right=`<span style="color:var(--green)">回水 ¥${Math.round(b.rebate).toLocaleString()}</span>`;
+  return`<div class="list-row" style="align-items:flex-start;gap:8px">
+    <span style="flex:1;min-width:0;line-height:1.5">
+      <span class="badge bclient">${b.client}</span>
+      ${content} <span class="badge b${b.type}">${TL[b.type]}</span>
+      <span style="display:inline-block;margin-top:4px;font-size:13px;color:var(--blue);font-weight:600">下注 ¥${Math.round(b.amt).toLocaleString()}</span>
+      ${b.winType?`<div style="font-size:11px;color:var(--text3);margin-top:3px">${b.winType}</div>`:''}
+    </span>
+    <span style="flex-shrink:0;text-align:right;padding-top:2px">${right}</span>
+  </div>`;
+}
 function isPtxBet(b){return b&&(b.type==='ptx'||/^平特/.test(b.label||''))}
 function ptxWinProfit(amt){return amt*PTX_ODDS}
 function temaEffOdds(b){return Math.max(0,getO('tema')-(b.numCount||1))}
@@ -645,7 +667,8 @@ function doSettle(){
     return`<div class="list-row"><span>${c.name} ${badge}</span><span style="font-size:13px;text-align:right">下注 ¥${Math.round(c.bet).toLocaleString()} · 中奖 ¥${Math.round(c.winAmt).toLocaleString()} · 派彩 ¥${Math.round(c.pay).toLocaleString()}<br><span style="color:${c.pnl>=0?'var(--green)':'var(--red)'}">庄家${c.pnl>=0?'赚':'亏'} ¥${Math.round(Math.abs(c.pnl)).toLocaleString()}</span></span></div>`;
   }).join('');
   const winClientRows=winClients.length?winClients.map(c=>`<div class="list-row"><span><span class="badge bclient">${c.name}</span> 下注 ¥${Math.round(c.bet).toLocaleString()} · ${c.winCount}笔</span><strong style="color:var(--yellow)">中奖 ¥${Math.round(c.winAmt).toLocaleString()}</strong></div>`).join(''):'<div class="empty">本期无中奖</div>';
-  const winDetail=wins.slice(0,50).map(b=>`<div class="list-row"><span><span class="badge bclient">${b.client}</span> ${b.label||b.num} <span class="badge b${b.type}">${TL[b.type]}</span>${b.winType?` <span style="font-size:11px;color:var(--text3)">${b.winType}</span>`:''}</span><span style="font-size:13px;text-align:right">下注 ¥${Math.round(b.amt).toLocaleString()}${b.winAmt>0?`<br><span style="color:var(--yellow)">中奖 ¥${Math.round(b.winAmt).toLocaleString()}</span>`:''}${b.pay>0?`<br>派彩 ¥${Math.round(b.pay).toLocaleString()}`:''}</span></div>`).join('');
+  const winOnly=wins.filter(b=>b.profit>0);
+  const winDetail=winOnly.slice(0,50).map(renderWinDetailRow).join('');
   document.getElementById('settle-out').innerHTML=`${grandCard}
     <div class="card"><div class="card-title">本期结算</div><div class="hero" style="color:${houseProfit>=0?'var(--green)':'var(--red)'}">${houseProfit>=0?'+':'-'}¥${Math.round(Math.abs(houseProfit)).toLocaleString()}</div>
     <div class="hint" style="text-align:center">${pnlFormulaText(totB,sum.winAmt,sum.r)} = ${houseProfit>=0?'+':'-'}¥${Math.round(Math.abs(houseProfit)).toLocaleString()}</div>
@@ -658,7 +681,7 @@ function doSettle(){
     </div></div>
     <div class="card"><div class="card-title">中奖客户 ${winClients.length} 位</div>${winClientRows}</div>
     <div class="card"><div class="card-title">各客户结算</div>${clientRows}</div>
-    <div class="card"><div class="card-title">派彩明细 ${wins.length} 笔（含客户名）</div>${winDetail||'<div class="empty">无</div>'}${wins.length>50?`<div class="hint">仅显示前50笔，共${wins.length}笔</div>`:''}</div>`;
+    <div class="card"><div class="card-title">派彩明细 ${winOnly.length} 笔</div><div class="hint" style="margin-bottom:8px">下注金额在左侧 · 派彩=中奖金额−下注本金（赢利）</div>${winDetail||'<div class="empty">本期无中奖派彩</div>'}${winOnly.length>50?`<div class="hint">仅显示前50笔，共${winOnly.length}笔</div>`:''}</div>`;
   toast('结算完成');
 }
 
