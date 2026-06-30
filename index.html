@@ -11,7 +11,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>六合彩统计器 v2026.7.3</title>
+<title>六合彩统计器 v2026.7.4</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
@@ -351,6 +351,10 @@ function normalizeGeLine(l){
   l=l.replace(/([^\d\s])(名)(\d+)/g,'$1各$3').replace(/(^|[^\d])名\s*(\d+)/g,'$1各$2');
   return l;
 }
+function normalizeNumberListCommas(l){
+  let p;do{p=l;l=l.replace(/(\d{1,2})\s*[,，]\s*(\d{1,2})/g,'$1 $2');}while(l!==p);
+  return l;
+}
 function splitSubLines(line){
   const out=[];
   line.split(/[。\n；;]+/).forEach(chunk=>{
@@ -424,7 +428,7 @@ function parseLineSingle(seg,raw){
 function parseText(text){
   const out=[],log=[],errs=[];
   text.split('\n').forEach(line=>{
-    const t=line.trim();if(!t)return;
+    const t=normalizeNumberListCommas(line.trim());if(!t)return;
     splitSubLines(t).forEach(sub=>{
       const s=sanitizeLine(sub);if(!s&& !parsePingTeRaw(sub)&&!parseSlashBet(sub)){return}
       const parts=splitMultiGe(sanitizeLine(sub)||sub),all=[];
@@ -437,7 +441,7 @@ function parseText(text){
 }
 
 // ===== 赔付（特码派彩=赢利+回水；平特/生肖/尾数=本金+赢利+回水）=====
-const PTX_ODDS=1,APP_VER='2026.7.3';
+const PTX_ODDS=1,APP_VER='2026.7.4';
 function temaEffOdds(b){return Math.max(0,getO('tema')-(b.numCount||1))}
 function temaWinProfit(b){const eo=temaEffOdds(b);return Math.max(0,b.amt*(eo-1))}
 function betContentLabel(b){
