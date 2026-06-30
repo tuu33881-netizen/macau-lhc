@@ -11,7 +11,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>六合彩统计器 v2026.6.29d</title>
+<title>六合彩统计器 v2026.6.30a</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
@@ -323,7 +323,7 @@ function updateRebateHint(){
   el.innerHTML=`<strong>回水计算（仅特码，无论中否都退）：</strong><br>
     回水 = 特码总投注 × ${pct}%（平特/尾数/生肖不回水）<br>
     例：特码5115×4% = 204.6<br>
-    庄家盈亏 = 总投注 − 赢利 − 回水${temaTot?`<br>当前：特码投注 ¥${temaTot.toLocaleString()} · 回水 ¥${rb.toLocaleString(undefined,{maximumFractionDigits:1})}`:''}`;
+    庄家盈亏 = 总投注 − 中奖金额 − 回水${temaTot?`<br>当前：特码投注 ¥${temaTot.toLocaleString()} · 回水 ¥${rb.toLocaleString(undefined,{maximumFractionDigits:1})}`:''}`;
 }
 function toast(){}
 function go(id,btn){document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));document.getElementById('pg-'+id).classList.add('on');document.querySelectorAll('.bnav button').forEach(b=>b.classList.remove('on'));if(btn)btn.classList.add('on');if(id==='stats')renderStats();if(id==='risk')renderRisk();if(id==='more')renderZodList();if(id==='settle')initBallInputs()}
@@ -437,7 +437,7 @@ function parseText(text){
 }
 
 // ===== 赔付（赔率含本金，派彩=赢利+回水，不退本金）=====
-const PTX_ODDS=1,APP_VER='2026.6.29d';
+const PTX_ODDS=1,APP_VER='2026.6.30a';
 function isPtxBet(b){return b&&(b.type==='ptx'||/^平特/.test(b.label||''))}
 function ptxWinProfit(amt){return amt*PTX_ODDS}
 function temaEffOdds(b){return Math.max(0,getO('tema')-(b.numCount||1))}
@@ -464,7 +464,8 @@ function calcPay(b,ctx){
   return{profit:w,rebate:r,pay:calcPayAmount(w,r),winType:wt};
 }
 function calcPayLegacy(b,ctx){return calcPay(b,ctx)}
-function housePnlNet(bet,profit,rebate){return bet-(profit||0)-(rebate||0)}
+function housePnlNet(bet,winAmt,rebate){return bet-(winAmt||0)-(rebate||0)}
+function pnlFormulaText(bet,winAmt,rebate){return`总投注 ¥${Math.round(bet).toLocaleString()} − 中奖金额 ¥${Math.round(winAmt||0).toLocaleString()} − 回水 ¥${Math.round(rebate||0).toLocaleString()}`}
 function calcRisk(b,n){return calcPay(b,{temaNum:n,hitZods:new Set([ga(n).zod]),hitTails:new Set([n%10])})}
 function settleGrandLegacy(ctx){
   let totB=0,sum={w:0,r:0,payout:0},rows=[];
@@ -482,16 +483,15 @@ function settleGrandLegacy(ctx){
 function renderGrandLegacyCard(legacy,balls){
   const s=legacy.sum,pnl=legacy.pnl;
   const ballStr=balls.slice(0,6).map(n=>String(n).padStart(2,'0')).join(' ')+' + '+String(balls[6]).padStart(2,'0');
-  const clientRows=legacy.rows.map(c=>`<div class="list-row"><span>${c.name}</span><span style="font-size:13px;text-align:right">投注 ¥${Math.round(c.bet).toLocaleString()} · 派彩 ¥${Math.round(c.payout).toLocaleString()}<br><span style="color:${c.pnl>=0?'var(--green)':'var(--red)'}">庄家${c.pnl>=0?'赚':'亏'} ¥${Math.round(Math.abs(c.pnl)).toLocaleString()}</span></span></div>`).join('');
+  const clientRows=legacy.rows.map(c=>`<div class="list-row"><span>${c.name}</span><span style="font-size:13px;text-align:right">投注 ¥${Math.round(c.bet).toLocaleString()} · 中奖 ¥${Math.round(c.profit).toLocaleString()} · 回水 ¥${Math.round(c.rebate).toLocaleString()}<br><span style="color:${c.pnl>=0?'var(--green)':'var(--red)'}">庄家${c.pnl>=0?'赚':'亏'} ¥${Math.round(Math.abs(c.pnl)).toLocaleString()}</span></span></div>`).join('');
   return`<div class="card" style="border-color:#4a5f8a">
     <div class="card-title">盈亏大合计</div>
     <div class="hint" style="margin-bottom:10px">开奖 ${ballStr} · 47赔含本金，赢利=投注×(有效赔率−1) · 派彩=赢利+回水</div>
     <div class="hero" style="font-size:32px;color:${pnl>=0?'var(--green)':'var(--red)'}">${pnl>=0?'+':'-'}¥${Math.round(Math.abs(pnl)).toLocaleString()}</div>
-    <div class="hint" style="text-align:center;margin-bottom:10px">庄家盈亏 = 总投注 − 赢利 − 回水</div>
+    <div class="hint" style="text-align:center;margin-bottom:10px">${pnlFormulaText(legacy.totB,s.w,s.r)} = ${pnl>=0?'+':'-'}¥${Math.round(Math.abs(pnl)).toLocaleString()}</div>
     <div class="kpi">
-      <div class="kpi-item"><div class="lb">总投注</div><div class="vl">¥${Math.round(legacy.totB).toLocaleString()}</div></div>
-      <div class="kpi-item"><div class="lb">派彩合计</div><div class="vl" style="color:var(--yellow)">¥${Math.round(s.payout).toLocaleString()}</div></div>
-      <div class="kpi-item"><div class="lb">赢利支出</div><div class="vl" style="color:var(--yellow)">¥${Math.round(s.w).toLocaleString()}</div></div>
+      <div class="kpi-item"><div class="lb">总投注（本金）</div><div class="vl">¥${Math.round(legacy.totB).toLocaleString()}</div></div>
+      <div class="kpi-item"><div class="lb">中奖金额</div><div class="vl" style="color:var(--yellow)">¥${Math.round(s.w).toLocaleString()}</div></div>
       <div class="kpi-item"><div class="lb">回水</div><div class="vl">¥${Math.round(s.r).toLocaleString()}</div></div>
       <div class="kpi-item"><div class="lb">庄家盈亏</div><div class="vl" style="color:${pnl>=0?'var(--green)':'var(--red)'}">${pnl>=0?'+':'-'}¥${Math.round(Math.abs(pnl)).toLocaleString()}</div></div>
     </div>
@@ -586,12 +586,12 @@ function renderRisk(){
   document.getElementById('risk-kpi').innerHTML=`
     <div class="kpi-item"><div class="lb">总投注</div><div class="vl">¥${tot.toLocaleString()}</div></div>
     <div class="kpi-item"><div class="lb">客户数</div><div class="vl">${clients.length}</div></div>
-    <div class="kpi-item"><div class="lb">最大支出</div><div class="vl" style="color:var(--red)">¥${Math.round(wv.outflow).toLocaleString()}</div></div>
+    <div class="kpi-item"><div class="lb">最大中奖金额</div><div class="vl" style="color:var(--red)">¥${Math.round(wv.profit).toLocaleString()}</div></div>
     <div class="kpi-item"><div class="lb">最坏号码</div><div class="vl">${String(worst).padStart(2,'0')}</div></div>`;
   const ratio=wv.outflow/tot;
-  document.getElementById('risk-banner').innerHTML=`<div style="font-size:14px;line-height:1.6">${ratio>1.3?'<span style="color:var(--red)">⚠ 高风险</span>':'<span style="color:var(--green)">✓ 风险可控</span>'} · 最坏号 <strong>${String(worst).padStart(2,'0')}</strong> · 庄家${wv.net>=0?'赚':'亏'} ¥${Math.round(Math.abs(wv.net)).toLocaleString()}</div><div class="hint">庄家盈亏 = 总投注 − 赢利 − 回水 · 汇总${clients.length}位客户</div>`;
+  document.getElementById('risk-banner').innerHTML=`<div style="font-size:14px;line-height:1.6">${ratio>1.3?'<span style="color:var(--red)">⚠ 高风险</span>':'<span style="color:var(--green)">✓ 风险可控</span>'} · 最坏号 <strong>${String(worst).padStart(2,'0')}</strong> · 庄家${wv.net>=0?'赚':'亏'} ¥${Math.round(Math.abs(wv.net)).toLocaleString()}</div><div class="hint">${pnlFormulaText(tot,wv.profit,wv.rebate)} · 汇总${clients.length}位客户</div>`;
   const sorted=Object.entries(exp).sort((a,b)=>b[1].outflow-a[1].outflow).slice(0,5);
-  document.getElementById('risk-top').innerHTML=sorted.map(([n,v],i)=>`<div class="list-row" onclick="showRisk(${n})"><span>${i+1}. ${String(n).padStart(2,'0')} ${NUM_ZOD[n]}</span><span style="color:var(--red)">¥${Math.round(v.outflow).toLocaleString()}</span></div>`).join('');
+  document.getElementById('risk-top').innerHTML=sorted.map(([n,v],i)=>`<div class="list-row" onclick="showRisk(${n})"><span>${i+1}. ${String(n).padStart(2,'0')} ${NUM_ZOD[n]}</span><span style="color:var(--red)">中奖 ¥${Math.round(v.profit).toLocaleString()}</span></div>`).join('');
   const mn=Math.min(...vals),mx=Math.max(...vals,1);let g='';
   for(let n=1;n<=49;n++){const v=exp[n],r=(v.outflow-mn)/(mx-mn||1),loss=v.net<0;
     g+=`<div class="hcell" style="background:${loss?`rgba(255,77,77,${0.1+r*0.6})`:`rgba(46,204,138,${0.06+r*0.3})`}" onclick="showRisk(${n})"><div class="n">${String(n).padStart(2,'0')}</div><div class="a">${loss?'亏':'赚'}</div></div>`}
@@ -601,7 +601,7 @@ function showRisk(n){
   const bets=allBets(),tot=bets.reduce((a,b)=>a+b.amt,0);let s={w:0,r:0};
   bets.forEach(b=>{const x=calcRisk(b,n);s.w+=x.profit;s.r+=x.rebate});
   const hn=housePnlNet(tot,s.w,s.r);
-  document.getElementById('sheet-body').innerHTML=`<div class="sheet-handle"></div><h3 style="margin-bottom:8px">${String(n).padStart(2,'0')}号 ${ZOD_E[NUM_ZOD[n]]}${NUM_ZOD[n]}</h3><div class="hero" style="font-size:22px;color:${hn>=0?'var(--green)':'var(--red)'}">庄家${hn>=0?'赚':'亏'} ¥${Math.round(Math.abs(hn)).toLocaleString()}</div><div class="list-row"><span>总投注</span><span>¥${Math.round(tot).toLocaleString()}</span></div><div class="list-row"><span>赢利支出</span><span>¥${Math.round(s.w).toLocaleString()}</span></div><div class="list-row"><span>回水</span><span>¥${Math.round(s.r).toLocaleString()}</span></div><div class="hint" style="margin-top:8px">盈亏 = 总投注 − 赢利 − 回水</div><button class="btn btn-secondary" style="margin-top:12px" onclick="closeSheet()">关闭</button>`;
+  document.getElementById('sheet-body').innerHTML=`<div class="sheet-handle"></div><h3 style="margin-bottom:8px">${String(n).padStart(2,'0')}号 ${ZOD_E[NUM_ZOD[n]]}${NUM_ZOD[n]}</h3><div class="hero" style="font-size:22px;color:${hn>=0?'var(--green)':'var(--red)'}">庄家${hn>=0?'赚':'亏'} ¥${Math.round(Math.abs(hn)).toLocaleString()}</div><div class="list-row"><span>总投注（本金）</span><span>¥${Math.round(tot).toLocaleString()}</span></div><div class="list-row"><span>中奖金额</span><span style="color:var(--yellow)">¥${Math.round(s.w).toLocaleString()}</span></div><div class="list-row"><span>回水</span><span>¥${Math.round(s.r).toLocaleString()}</span></div><div class="hint" style="margin-top:8px">${pnlFormulaText(tot,s.w,s.r)} = ${hn>=0?'+':'-'}¥${Math.round(Math.abs(hn)).toLocaleString()}</div><button class="btn btn-secondary" style="margin-top:12px" onclick="closeSheet()">关闭</button>`;
   document.getElementById('sheet').classList.add('on');
 }
 
@@ -639,18 +639,17 @@ function doSettle(){
   const winClients=clientStats.filter(c=>c.winCount>0);
   const clientRows=clientStats.map(c=>{
     const badge=c.hitWin?'<span class="badge bwin">中奖</span>':c.rebateOnly?'<span class="badge bwei">回水</span>':'<span class="badge" style="background:var(--bg3);color:var(--text3)">未中</span>';
-    return`<div class="list-row"><span>${c.name} ${badge}</span><span style="font-size:13px;text-align:right">投注 ¥${Math.round(c.bet).toLocaleString()} · 赢利 ¥${Math.round(c.profit).toLocaleString()} · 回水 ¥${Math.round(c.rebate).toLocaleString()}<br><span style="color:${c.pnl>=0?'var(--green)':'var(--red)'}">庄家${c.pnl>=0?'赚':'亏'} ¥${Math.round(Math.abs(c.pnl)).toLocaleString()}</span></span></div>`;
+    return`<div class="list-row"><span>${c.name} ${badge}</span><span style="font-size:13px;text-align:right">投注 ¥${Math.round(c.bet).toLocaleString()} · 中奖 ¥${Math.round(c.profit).toLocaleString()} · 回水 ¥${Math.round(c.rebate).toLocaleString()}<br><span style="color:${c.pnl>=0?'var(--green)':'var(--red)'}">庄家${c.pnl>=0?'赚':'亏'} ¥${Math.round(Math.abs(c.pnl)).toLocaleString()}</span></span></div>`;
   }).join('');
-  const winClientRows=winClients.length?winClients.map(c=>`<div class="list-row"><span><span class="badge bclient">${c.name}</span> ${c.winCount}笔</span><strong style="color:var(--yellow)">¥${Math.round(c.pay).toLocaleString()}</strong></div>`).join(''):'<div class="empty">本期无派彩</div>';
-  const winDetail=wins.slice(0,50).map(b=>`<div class="list-row"><span><span class="badge bclient">${b.client}</span> ${b.label||b.num} <span class="badge b${b.type}">${TL[b.type]}</span>${b.winType?` <span style="font-size:11px;color:var(--text3)">${b.winType}</span>`:''}</span><span>¥${Math.round(displayPayout(b)).toLocaleString()}</span></div>`).join('');
+  const winClientRows=winClients.length?winClients.map(c=>`<div class="list-row"><span><span class="badge bclient">${c.name}</span> ${c.winCount}笔</span><strong style="color:var(--yellow)">中奖 ¥${Math.round(c.profit).toLocaleString()}</strong></div>`).join(''):'<div class="empty">本期无中奖</div>';
+  const winDetail=wins.slice(0,50).map(b=>`<div class="list-row"><span><span class="badge bclient">${b.client}</span> ${b.label||b.num} <span class="badge b${b.type}">${TL[b.type]}</span>${b.winType?` <span style="font-size:11px;color:var(--text3)">${b.winType}</span>`:''}</span><span>${b.profit>0?`<span style="color:var(--yellow)">中奖 ¥${Math.round(b.profit).toLocaleString()}</span>`:''}${b.profit>0&&b.rebate>0?' · ':''}${b.rebate>0?`回水 ¥${Math.round(b.rebate).toLocaleString()}`:''}</span></div>`).join('');
   document.getElementById('settle-out').innerHTML=`${grandCard}
     <div class="card"><div class="card-title">本期结算</div><div class="hero" style="color:${houseProfit>=0?'var(--green)':'var(--red)'}">${houseProfit>=0?'+':'-'}¥${Math.round(Math.abs(houseProfit)).toLocaleString()}</div>
-    <div class="hint" style="text-align:center">庄家${houseProfit>=0?'盈利':'亏损'} = 总投注 − 赢利 − 回水</div>
+    <div class="hint" style="text-align:center">${pnlFormulaText(totB,sum.w,sum.r)} = ${houseProfit>=0?'+':'-'}¥${Math.round(Math.abs(houseProfit)).toLocaleString()}</div>
     <div class="kpi" style="margin-top:10px">
-      <div class="kpi-item"><div class="lb">总投注</div><div class="vl">¥${Math.round(totB).toLocaleString()}</div></div>
-      <div class="kpi-item"><div class="lb">赢利支出</div><div class="vl" style="color:var(--yellow)">¥${Math.round(sum.w).toLocaleString()}</div></div>
+      <div class="kpi-item"><div class="lb">总投注（本金）</div><div class="vl">¥${Math.round(totB).toLocaleString()}</div></div>
+      <div class="kpi-item"><div class="lb">中奖金额</div><div class="vl" style="color:var(--yellow)">¥${Math.round(sum.w).toLocaleString()}</div></div>
       <div class="kpi-item"><div class="lb">回水</div><div class="vl">¥${Math.round(sum.r).toLocaleString()}</div></div>
-      <div class="kpi-item"><div class="lb">客户实收</div><div class="vl">¥${Math.round(sum.pay).toLocaleString()}</div></div>
       <div class="kpi-item"><div class="lb">庄家盈亏</div><div class="vl" style="color:${houseProfit>=0?'var(--green)':'var(--red)'}">${houseProfit>=0?'+':'-'}¥${Math.round(Math.abs(houseProfit)).toLocaleString()}</div></div>
     </div></div>
     <div class="card"><div class="card-title">中奖客户 ${winClients.length} 位</div>${winClientRows}</div>
