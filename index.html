@@ -446,12 +446,12 @@ function betContentLabel(b){
 }
 function buildSettleDetail(ctx){
   const wins=[],clientStats=clients.map(c=>{
-    let cs={bet:0,winAmt:0,winPayout:0,winCount:0};
+    let cs={bet:0,winAmt:0,payout:0,winCount:0};
     c.bets.forEach(b=>{
       cs.bet+=b.amt;
       const x=calcPay(b,ctx);
       if(x.profit>0){
-        cs.winAmt+=x.winAmt;cs.winPayout+=x.pay;cs.winCount++;
+        cs.winAmt+=x.profit;cs.payout+=x.profit;cs.winCount++;
         wins.push({...b,...x,client:c.name});
       }
     });
@@ -466,7 +466,7 @@ function renderWinCustomers(clientStats){
     <span><span class="badge bclient">${c.name}</span> ${c.winCount}笔中奖</span>
     <span style="font-size:13px;text-align:right;line-height:1.5">下注 ¥${Math.round(c.bet).toLocaleString()}<br>
     <span style="color:var(--yellow)">中奖 ¥${Math.round(c.winAmt).toLocaleString()}</span> · 
-    <span style="color:var(--green)">派彩 ¥${Math.round(c.winPayout).toLocaleString()}</span></span>
+    <span style="color:var(--green)">派彩 ¥${Math.round(c.payout).toLocaleString()}</span></span>
   </div>`).join('');
 }
 function renderWinDetails(wins){
