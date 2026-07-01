@@ -11,7 +11,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>澳门六合彩统计器 v2026.8.1</title>
+<title>澳门六合彩统计器 v2026.8.2</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
@@ -251,7 +251,7 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
 </div>
 
 <script>
-const APP_VER='2026.8.1';
+const APP_VER='2026.8.2';
 (function(){const u=new URL(location.href);if(u.searchParams.get('v')!==APP_VER){u.searchParams.set('v',APP_VER);location.replace(u.toString())}})();
 const ZOD_ORDER=['鼠','牛','虎','兔','龙','蛇','马','羊','猴','鸡','狗','猪'];
 const ZOD_E={鼠:'🐭',牛:'🐮',虎:'🐯',兔:'🐰',龙:'🐲',蛇:'🐍',马:'🐴',羊:'🐑',猴:'🐵',鸡:'🐔',狗:'🐶',猪:'🐷'};
@@ -873,7 +873,7 @@ function saveOdds(){const o={ptx:PTX_ODDS,tema_mode:getTemaMode()};['tema','huis
 function saveBets(){stSet(SK.bets,JSON.stringify({clients:clients.map(c=>({...c,bets:c.bets.map(cleanBet)}))}))}
 function loadAll(){
   try{const z=stGet(SK.zodiac);if(z){const d=JSON.parse(z);if(d.nums){ZOD_NUMS=d.nums;ZOD_YEAR=d.year||2026;ZOD_YEAR_ANIMAL=d.yearAnimal||'马'}}}catch(e){}
-  try{const o=stGet(SK.odds);if(o){const d=JSON.parse(o);Object.entries(d).forEach(([k,v])=>{const el=document.getElementById('o-'+k);if(el)el.value=v});if(d.tema_mode){const m=document.getElementById('o-tema-mode');if(m)m.value=d.tema_mode}}catch(e){}
+  try{const o=stGet(SK.odds);if(o){const d=JSON.parse(o);Object.entries(d).forEach(([k,v])=>{const el=document.getElementById('o-'+k);if(el)el.value=v});if(d.tema_mode){const m=document.getElementById('o-tema-mode');if(m)m.value=d.tema_mode}}}catch(e){}
   try{
     const b=stGet(SK.bets);
     if(b){
