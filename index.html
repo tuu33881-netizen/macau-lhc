@@ -11,7 +11,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>澳门六合彩统计器 v2026.8.5</title>
+<title>澳门六合彩统计器 v2026.8.6</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
@@ -100,13 +100,17 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
 .btn-wechat{background:#07C160;color:#fff;margin-top:8px}
 .paste-status{font-size:12px;min-height:18px;margin-top:8px;line-height:1.5}
 .paste-status.ok{color:var(--green)}.paste-status.err{color:var(--red)}
+.ver-banner{background:#1a2d4a;border:1px solid var(--blue);color:var(--blue);font-size:12px;font-weight:600;text-align:center;padding:8px 12px;border-radius:10px;margin-top:8px;line-height:1.5}
+#toast-el{position:fixed;left:50%;bottom:calc(var(--nav-h) + var(--safe-b) + 16px);transform:translateX(-50%) translateY(20px);background:#2a4070;color:#fff;padding:12px 20px;border-radius:12px;font-size:14px;font-weight:600;z-index:500;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;max-width:90%;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.4)}
+#toast-el.on{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
 </head>
 <body>
 <div class="app">
   <header class="topbar">
     <h1>澳门六合彩统计器 <span id="hdr-year" style="font-size:13px;color:var(--blue)"></span></h1>
-    <div class="sub">澳门派彩规则 · 注单统计 · 开奖结算 · <span id="app-ver"></span></div>
+    <div class="sub">澳门派彩规则 · 注单统计 · 开奖结算 · <span id="app-ver">v2026.8.6</span></div>
+    <div class="ver-banner" id="ver-banner">v2026.8.6 · 特码/平特分开结算 · 盈亏=本金−派彩</div>
     <div class="total-pill" id="hdr-total">总投注 ¥0 · 0客户</div>
   </header>
 
@@ -171,7 +175,15 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
         <div class="ball-grid" id="ball-inputs"></div>
         <button class="btn btn-primary" style="margin-top:12px" onclick="doSettle()">立即结算</button>
       </div>
-      <div id="settle-out"></div>
+      <div id="settle-out"><div class="card" id="settle-hint">
+        <div class="card-title">结算说明</div>
+        <div class="hint" style="line-height:1.8">
+          ① 先在「录入」页添加客户注单<br>
+          ② 填入开奖 6正+1特，点 <strong>立即结算</strong><br>
+          ③ 下方将出现：<strong>总盈亏</strong> → <strong>特码结算</strong> → <strong>平特结算</strong> 三张结果<br>
+          <span style="color:var(--blue)">当前版本 v2026.8.6</span>
+        </div>
+      </div></div>
     </div>
 
     <!-- 设置 -->
@@ -251,8 +263,14 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
 </div>
 
 <script>
-const APP_VER='2026.8.5';
-(function(){const u=new URL(location.href);if(u.searchParams.get('v')!==APP_VER){u.searchParams.set('v',APP_VER);location.replace(u.toString())}})();
+const APP_VER='2026.8.6',BUILD_ID='20260630a';
+(function(){
+  const u=new URL(location.href);
+  if(u.searchParams.get('v')!==APP_VER||u.searchParams.get('b')!==BUILD_ID){
+    u.searchParams.set('v',APP_VER);u.searchParams.set('b',BUILD_ID);
+    location.replace(u.toString());
+  }
+})();
 const ZOD_ORDER=['鼠','牛','虎','兔','龙','蛇','马','羊','猴','鸡','狗','猪'];
 const ZOD_E={鼠:'🐭',牛:'🐮',虎:'🐯',兔:'🐰',龙:'🐲',蛇:'🐍',马:'🐴',羊:'🐑',猴:'🐵',鸡:'🐔',狗:'🐶',猪:'🐷'};
 const YEAR_ANIMAL={2024:'龙',2025:'蛇',2026:'马',2027:'羊',2028:'猴',2029:'鸡',2030:'狗'};
@@ -376,8 +394,19 @@ function updateMacauRulesHint(){
   if(hint)hint.innerHTML=temaTot?`当前特码投注 ¥${temaTot.toLocaleString()} · 回水 ¥${rb.toLocaleString(undefined,{maximumFractionDigits:1})}`:'保存后生效';
 }
 function updateRebateHint(){updateMacauRulesHint()}
-function toast(){}
-function go(id,btn){document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));document.getElementById('pg-'+id).classList.add('on');document.querySelectorAll('.bnav button').forEach(b=>b.classList.remove('on'));if(btn)btn.classList.add('on');if(id==='stats')renderStats();if(id==='risk')renderRisk();if(id==='more'){renderZodList();updateMacauRulesHint()}if(id==='settle')initBallInputs()}
+function toast(msg){
+  if(!msg)return;
+  let el=document.getElementById('toast-el');
+  if(!el){el=document.createElement('div');el.id='toast-el';document.body.appendChild(el)}
+  el.textContent=msg;el.classList.add('on');
+  clearTimeout(toast._t);toast._t=setTimeout(()=>el.classList.remove('on'),2800);
+}
+function go(id,btn){document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));document.getElementById('pg-'+id).classList.add('on');document.querySelectorAll('.bnav button').forEach(b=>b.classList.remove('on'));if(btn)btn.classList.add('on');if(id==='stats')renderStats();if(id==='risk')renderRisk();if(id==='more'){renderZodList();updateMacauRulesHint()}if(id==='settle'){initBallInputs();initSettleHint()}}
+function initSettleHint(){
+  const out=document.getElementById('settle-out');
+  if(!out||out.querySelector('[data-settled]'))return;
+  if(!out.querySelector('#settle-hint'))out.innerHTML=`<div class="card" id="settle-hint"><div class="card-title">结算说明</div><div class="hint" style="line-height:1.8">① 先添加客户注单 → ② 填开奖号 → ③ 点立即结算<br>将显示 <strong>总盈亏 + 特码结算 + 平特结算</strong><br><span style="color:var(--blue)">v${APP_VER}</span></div></div>`;
+}
 function closeSheet(){document.getElementById('sheet').classList.remove('on')}
 function ga(n){let bs='绿';if(RED.has(n))bs='红';else if(BLUE.has(n))bs='蓝';return{bs,zod:NUM_ZOD[n]||'?'}}
 
@@ -904,9 +933,8 @@ function doSettle(){
   const legacy=settleGrandLegacy(ctx);
   const{wins}=buildSettleDetail(ctx);
   saveLastSettle(balls,legacy,ctx);
-  document.getElementById('settle-out').innerHTML=`${renderPnlCard(legacy,balls)}
-    ${renderSplitSettle(ctx,balls,wins)}`;
-  toast('结算完成 v'+APP_VER);
+  document.getElementById('settle-out').innerHTML=`<div data-settled="1">${renderPnlCard(legacy,balls)}${renderSplitSettle(ctx,balls,wins)}</div>`;
+  toast('✓ 结算完成 · 特码+平特已分开 · v'+APP_VER);
 }
 
 function renderZodList(){updateRebateHint();
@@ -938,8 +966,10 @@ function loadAll(){
   }catch(e){}
   rebuildNumZod();renderClients();updateHeader();
 }
-rebuildNumZod();loadAll();initBallInputs();initWeChat();updateMacauRulesHint();
+rebuildNumZod();loadAll();initBallInputs();initWeChat();updateMacauRulesHint();initSettleHint();
 document.getElementById('app-ver').textContent='v'+APP_VER;
+const vb=document.getElementById('ver-banner');if(vb)vb.textContent='v'+APP_VER+' · 特码/平特分开结算 · 盈亏=本金−派彩';
+toast('已加载 v'+APP_VER);
 </script>
 </body>
 </html>
