@@ -263,7 +263,7 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
 </div>
 
 <script>
-const APP_VER='2026.8.7',BUILD_ID='20260701a';
+const APP_VER='2026.8.8',BUILD_ID='20260701b';
 (function(){
   const u=new URL(location.href);
   if(u.searchParams.get('v')!==APP_VER||u.searchParams.get('b')!==BUILD_ID){
@@ -613,6 +613,19 @@ function calcPoolStats(t){
   t.subsidy=Math.max(0,t.payout-t.bet);
   t.surplus=Math.max(0,t.bet-t.payout);
 }
+function calcPtxPoolStats(t){
+  const lb=t.loserBet||0;
+  t.pnl=lb-(t.payout||0);
+  t.subsidy=Math.max(0,(t.payout||0)-lb);
+  t.surplus=Math.max(0,lb-(t.payout||0));
+}
+function calcAllPoolStats(by){
+  const keys=['tema','ptx','zodiac','wei'];
+  by.all.pnl=keys.reduce((s,k)=>s+(by[k].count?by[k].pnl:0),0);
+  by.all.subsidy=keys.reduce((s,k)=>s+(by[k].count?by[k].subsidy:0),0);
+  by.all.surplus=keys.reduce((s,k)=>s+(by[k].count?by[k].surplus:0),0);
+}
+function ptxPnlFormulaText(loserBet,payout){return`输家本金 ${fmtMoney(loserBet)} − 派彩 ${fmtMoney(payout||0)}`}
 function typeHousePnl(t){return t.pnl!=null?t.pnl:t.bet-t.payout}
 function pnlFormulaText(principal,payout){return`本金池 ¥${Math.round(principal).toLocaleString()} − 派彩 ¥${Math.round(payout||0).toLocaleString()}`}
 function fmtSubsidy(n){return n>0?`<span style="color:var(--red);font-weight:700">需补贴 ${fmtMoney(n)}</span>`:`<span style="color:var(--green)">无需补贴</span>`}
@@ -632,7 +645,7 @@ function settleGrandLegacy(ctx){
   sum.temaTot=temaBetTotal(clients.flatMap(c=>c.bets));
   const st=collectSettleStats(ctx);
   sum.by=st.by;
-  return{totB,sum,pnl:housePnlNet(totB,sum.payout),rows};
+  return{totB,sum,pnl:st.by.all.pnl,rows};
 }
 function renderPnlBreakdown(by){
   if(!by)return'';
@@ -655,7 +668,7 @@ function renderPnlCard(legacy,balls){
     <div class="hint" style="margin-bottom:10px">开奖 ${ballStr}</div>
     <div class="hero" style="font-size:36px;color:${pnl>=0?'var(--green)':'var(--red)'}">${fmtPnl(pnl)}</div>
     ${splitLine?`<div class="hint" style="text-align:center;margin-bottom:8px;font-weight:600">${splitLine} = ${fmtPnl(pnl)}</div>`:''}
-    <div class="hint" style="text-align:center;margin-bottom:12px">${pnlFormulaText(legacy.totB,s.payout)} = ${fmtPnl(pnl)}</div>
+    <div class="hint" style="text-align:center;margin-bottom:12px">${renderPnlBreakdown(by)||`${pnlFormulaText(legacy.totB,s.payout)} = ${fmtPnl(pnl)}`}</div>
     <div class="kpi">
       <div class="kpi-item"><div class="lb">本金池合计</div><div class="vl">¥${Math.round(legacy.totB).toLocaleString()}</div></div>
       <div class="kpi-item"><div class="lb">派彩合计</div><div class="vl" style="color:var(--yellow)">¥${Math.round(s.payout).toLocaleString(undefined,{maximumFractionDigits:1})}</div></div>
@@ -710,7 +723,7 @@ function clearInput(){document.getElementById('raw').value='';document.getElemen
 function fillDemo(){document.getElementById('raw').value='牛各号50元\n猪鸡狗猴各数50\n羊各斤100\n01.02.03各30\n26.41.32名20\n平特马3000块\n尾0 500'}
 
 function betTypeKey(b){return isPtxBet(b)?'ptx':(b.type||'tema')}
-function emptyTypeAgg(){return{bet:0,count:0,win:0,winCount:0,rebate:0,payout:0,pnl:0,subsidy:0,surplus:0}}
+function emptyTypeAgg(){return{bet:0,count:0,win:0,winCount:0,loseCount:0,loserBet:0,winnerBet:0,rebate:0,payout:0,pnl:0,subsidy:0,surplus:0}}
 function collectBetStats(bets){
   const by={tema:emptyTypeAgg(),ptx:emptyTypeAgg(),zodiac:emptyTypeAgg(),wei:emptyTypeAgg(),all:emptyTypeAgg()};
   (bets||[]).forEach(b=>{
@@ -731,13 +744,18 @@ function collectSettleStats(ctx){
       by[k].bet+=bet.amt;by[k].count++;by[k].rebate+=x.rebate;by[k].payout+=x.pay;
       by.all.bet+=bet.amt;by.all.count++;by.all.rebate+=x.rebate;by.all.payout+=x.pay;
       row.bet+=bet.amt;row.count++;row.rebate+=x.rebate;row.payout+=x.pay;
+      if(k==='ptx'){
+        if(x.profit>0)by[k].winnerBet+=bet.amt;
+        else{by[k].loserBet+=bet.amt;by[k].loseCount++}
+      }
       if(x.profit>0){by[k].win+=x.profit;by[k].winCount++;by.all.win+=x.profit;by.all.winCount++;row.win+=x.profit;row.winCount++}
     });
     row.pnl=housePnlNet(row.bet,row.payout);
     clientRows.push(row);
   });
-  ['tema','ptx','zodiac','wei'].forEach(k=>{if(by[k].count)calcPoolStats(by[k])});
-  calcPoolStats(by.all);
+  ['tema','zodiac','wei'].forEach(k=>{if(by[k].count)calcPoolStats(by[k])});
+  if(by.ptx.count)calcPtxPoolStats(by.ptx);
+  calcAllPoolStats(by);
   return{by,clientRows,pnl:by.all.pnl};
 }
 function fmtMoney(n){return'¥'+Math.round(n).toLocaleString()}
@@ -801,6 +819,34 @@ function renderClientSettleRows(clientRows,poolMode){
   }).join('');
 }
 function winTypeKey(w){return isPtxBet(w)?'ptx':(w.type||'tema')}
+function collectPtxSettleDetail(ctx){
+  const details=[];
+  clients.forEach(c=>{
+    c.bets.forEach(b=>{
+      const bet=cleanBet(b);
+      if(!isPtxBet(bet))return;
+      const zo=bet.sub||(bet.label||'').replace(/^平特/,'');
+      const x=calcPay(bet,ctx);
+      details.push({client:c.name,zodiac:zo,amt:bet.amt,hit:x.profit>0,payout:x.pay,profit:x.profit,label:bet.label||('平特'+zo)});
+    });
+  });
+  return details;
+}
+function renderPtxDetailTable(details){
+  if(!details.length)return'';
+  const rows=details.map((d,i)=>`<tr>
+    <td>${i+1}</td>
+    <td><span class="badge bclient">${d.client}</span></td>
+    <td>${ZOD_E[d.zodiac]||''}${d.zodiac}</td>
+    <td>${fmtMoney(d.amt)}</td>
+    <td class="${d.hit?'win':'pnl-neg'}">${d.hit?'✓ 中奖':'✗ 未中'}</td>
+    <td style="color:var(--yellow)">${d.hit?fmtMoney(d.payout):'—'}</td>
+  </tr>`).join('');
+  return`<table class="sum-table" style="margin-top:8px">
+    <tr><th>#</th><th>客户</th><th>生肖</th><th>下注</th><th>结果</th><th>派彩</th></tr>
+    ${rows}
+  </table>`;
+}
 function collectClientRowsByType(ctx,typeKey){
   const rows=[];
   clients.forEach(c=>{
@@ -816,38 +862,51 @@ function collectClientRowsByType(ctx,typeKey){
   });
   return rows;
 }
-function renderSplitSettleCard(typeKey,title,t,clientRows,wins,subtitle,border){
+function renderSplitSettleCard(typeKey,title,t,clientRows,wins,subtitle,border,ptxDetails){
   if(!t?.count)return`<div class="card"><div class="card-title">${title}</div><div class="empty">本期无此类注单</div></div>`;
   const pnl=typeHousePnl(t);
   const typeWins=wins.filter(w=>winTypeKey(w)===typeKey);
   const isPool=typeKey==='ptx';
-  const poolHint=isPool?'用全体客户投入的本金池，支付中奖客户派彩；池不够则需你补贴':'全体客户本金池支付中奖+回水，不足则需补贴';
+  const poolHint=isPool?'输家本金支付中奖派彩（1:1赢利）；1赢1输金额相等时池结余为0；派彩超出输家本金则需补贴':'全体客户本金池支付中奖+回水，不足则需补贴';
   const rebateNote=typeKey==='tema'&&t.rebate?`（含回水${fmtMoney(t.rebate)}）`:'';
+  const formulaLine=isPool?`${ptxPnlFormulaText(t.loserBet,t.payout)} = ${fmtPnl(pnl)}`:`${pnlFormulaText(t.bet,t.payout)} = ${fmtPnl(pnl)}`;
+  const kpi=isPool?`
+      <div class="kpi-item"><div class="lb">总投注</div><div class="vl">${fmtMoney(t.bet)}</div></div>
+      <div class="kpi-item"><div class="lb">输家本金</div><div class="vl" style="color:var(--red)">${fmtMoney(t.loserBet)}</div></div>
+      <div class="kpi-item"><div class="lb">赢家本金</div><div class="vl" style="color:var(--green)">${fmtMoney(t.winnerBet)}</div></div>
+      <div class="kpi-item"><div class="lb">派彩</div><div class="vl" style="color:var(--yellow)">${fmtMoney(t.payout)}</div></div>
+      <div class="kpi-item"><div class="lb">需补贴</div><div class="vl" style="color:${t.subsidy?'var(--red)':'var(--green)'}">${t.subsidy?fmtMoney(t.subsidy):'¥0'}</div></div>
+      <div class="kpi-item"><div class="lb">池结余</div><div class="vl" style="color:${t.surplus?'var(--green)':'var(--text3)'}">${t.surplus?fmtMoney(t.surplus):'¥0'}</div></div>`
+    :`
+      <div class="kpi-item"><div class="lb">本金池</div><div class="vl">${fmtMoney(t.bet)}</div></div>
+      <div class="kpi-item"><div class="lb">派彩${rebateNote}</div><div class="vl" style="color:var(--yellow)">${fmtMoney(t.payout)}</div></div>
+      <div class="kpi-item"><div class="lb">需补贴</div><div class="vl" style="color:${t.subsidy?'var(--red)':'var(--green)'}">${t.subsidy?fmtMoney(t.subsidy):'¥0'}</div></div>
+      <div class="kpi-item"><div class="lb">池结余</div><div class="vl" style="color:${t.surplus?'var(--green)':'var(--text3)'}">${t.surplus?fmtMoney(t.surplus):'¥0'}</div></div>`;
+  const ptxResultLine=isPool?`<div class="hint" style="text-align:center;margin-bottom:8px;font-weight:600">赢 ${t.winCount||0} 笔 · 输 ${t.loseCount||0} 笔</div>`:'';
+  const ptxDetailBlock=isPool&&ptxDetails?.length?`<div class="card-title" style="margin-top:14px">平特输赢明细 · ${ptxDetails.length}笔</div>${renderPtxDetailTable(ptxDetails)}`:'';
   return`<div class="card" style="border-color:${border||'#3d5a3d'}">
     <div class="card-title">${title}</div>
     ${subtitle?`<div class="hint" style="margin-bottom:8px">${subtitle}</div>`:''}
     <div class="hint" style="margin-bottom:10px">${poolHint}</div>
-    <div class="kpi">
-      <div class="kpi-item"><div class="lb">本金池</div><div class="vl">${fmtMoney(t.bet)}</div></div>
-      <div class="kpi-item"><div class="lb">派彩${rebateNote}</div><div class="vl" style="color:var(--yellow)">${fmtMoney(t.payout)}</div></div>
-      <div class="kpi-item"><div class="lb">需补贴</div><div class="vl" style="color:${t.subsidy?'var(--red)':'var(--green)'}">${t.subsidy?fmtMoney(t.subsidy):'¥0'}</div></div>
-      <div class="kpi-item"><div class="lb">池结余</div><div class="vl" style="color:${t.surplus?'var(--green)':'var(--text3)'}">${t.surplus?fmtMoney(t.surplus):'¥0'}</div></div>
-    </div>
+    <div class="kpi">${kpi}</div>
+    ${ptxResultLine}
     <div class="hero" style="font-size:28px;margin-top:10px;color:${pnl>=0?'var(--green)':'var(--red)'}">${fmtPnl(pnl)}</div>
-    <div class="hint" style="text-align:center;margin-bottom:10px">${pnlFormulaText(t.bet,t.payout)} = ${fmtPnl(pnl)}</div>
+    <div class="hint" style="text-align:center;margin-bottom:10px">${formulaLine}</div>
     <div class="hint" style="text-align:center;margin-bottom:8px">${fmtSubsidy(t.subsidy)}</div>
     <div class="card-title" style="margin-top:14px">分客户投入/取出 · ${t.count}注</div>
     ${renderClientSettleRows(clientRows,isPool)}
-    ${typeWins.length?`<div class="card-title" style="margin-top:14px">中奖注单 · ${typeWins.length}笔</div>${renderWinDetails(typeWins)}`:''}
+    ${ptxDetailBlock}
+    ${!isPool&&typeWins.length?`<div class="card-title" style="margin-top:14px">中奖注单 · ${typeWins.length}笔</div>${renderWinDetails(typeWins)}`:''}
   </div>`;
 }
 function renderSplitSettle(ctx,balls,wins){
   const st=collectSettleStats(ctx);
+  const ptxDetails=collectPtxSettleDetail(ctx);
   const ballStr=balls.slice(0,6).map(n=>String(n).padStart(2,'0')).join(' ')+' + '+String(balls[6]).padStart(2,'0');
   const temaSub=`开奖 ${ballStr} · 特码 <strong style="color:var(--red)">${String(balls[6]).padStart(2,'0')}</strong>${getTemaMode()==='macau'?' · 扣号':' · 满赔'}`;
   const ptxSub=`开奖 ${ballStr} · 7球肖位：${[...ctx.hitZods].map(z=>ZOD_E[z]+z).join(' ')}`;
   return`${renderSplitSettleCard('tema','特码结算',st.by.tema,collectClientRowsByType(ctx,'tema'),wins,temaSub,'#4a5f8a')}
-    ${renderSplitSettleCard('ptx','平特结算',st.by.ptx,collectClientRowsByType(ctx,'ptx'),wins,ptxSub,'#5a3d5a')}`;
+    ${renderSplitSettleCard('ptx','平特结算',st.by.ptx,collectClientRowsByType(ctx,'ptx'),wins,ptxSub,'#5a3d5a',ptxDetails)}`;
 }
 function renderSettleSummary(legacy,ctx,balls,wins){
   return renderSplitSettle(ctx,balls,wins);
@@ -870,7 +929,7 @@ function renderLastSettleOnStats(){
     box.innerHTML=`<div class="hero" style="font-size:28px;color:${d.pnl>=0?'var(--green)':'var(--red)'}">${fmtPnl(d.pnl)}</div>
       <div class="hint" style="text-align:center;margin-bottom:10px">开奖 ${ballStr} · ${pnlFormulaText(d.totB,d.sum?.payout||0)}</div>
       ${tema?.count?`<div class="list-row" style="font-size:13px"><span>特码</span><span>池${fmtMoney(tema.bet)}−派${fmtMoney(tema.payout)} ${tema.subsidy?'<span style="color:var(--red)">补'+fmtMoney(tema.subsidy)+'</span> ':''}<span class="${pnlClass(tema.pnl)}">${fmtPnl(tema.pnl)}</span></span></div>`:''}
-      ${ptx?.count?`<div class="list-row" style="font-size:13px"><span>平特</span><span>池${fmtMoney(ptx.bet)}−派${fmtMoney(ptx.payout)} ${ptx.subsidy?'<span style="color:var(--red)">补'+fmtMoney(ptx.subsidy)+'</span> ':''}<span class="${pnlClass(ptx.pnl)}">${fmtPnl(ptx.pnl)}</span></span></div>`:''}`;
+      ${ptx?.count?`<div class="list-row" style="font-size:13px"><span>平特</span><span>输${fmtMoney(ptx.loserBet??ptx.bet)}−派${fmtMoney(ptx.payout)} · 赢${ptx.winCount||0}输${ptx.loseCount||0} ${ptx.subsidy?'<span style="color:var(--red)">补'+fmtMoney(ptx.subsidy)+'</span> ':''}<span class="${pnlClass(ptx.pnl)}">${fmtPnl(ptx.pnl)}</span></span></div>`:''}`;
   }catch(e){card.style.display='none'}
 }
 
@@ -994,7 +1053,7 @@ function loadAll(){
 }
 rebuildNumZod();loadAll();initBallInputs();initWeChat();updateMacauRulesHint();initSettleHint();
 document.getElementById('app-ver').textContent='v'+APP_VER;
-const vb=document.getElementById('ver-banner');if(vb)vb.textContent='v'+APP_VER+' · 本金池派彩 · 不足=需补贴';
+const vb=document.getElementById('ver-banner');if(vb)vb.textContent='v'+APP_VER+' · 平特输家抵派彩 · 1赢1输=池结余0';
 toast('已加载 v'+APP_VER);
 </script>
 </body>
