@@ -11,7 +11,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>澳门六合彩统计器 v2026.8.0</title>
+<title>澳门六合彩统计器 v2026.8.1</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
@@ -76,6 +76,14 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
 .set-row select{width:100%;font-size:14px;font-weight:600;color:#fff;background:#283350;border:1px solid #4a5f8a;border-radius:10px;padding:10px 8px}
 .rule-box{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px;margin-top:10px;font-size:12px;line-height:1.7;color:var(--text2)}
 .rule-box strong{color:var(--text)}
+.sum-table{width:100%;font-size:13px;border-collapse:collapse}
+.sum-table th,.sum-table td{padding:8px 4px;text-align:right;border-bottom:1px solid var(--border)}
+.sum-table th:first-child,.sum-table td:first-child{text-align:left}
+.sum-table th{font-size:11px;color:var(--text3);font-weight:600}
+.sum-table tr:last-child td{border-bottom:none;font-weight:700}
+.sum-table .tot{color:var(--blue)}
+.sum-table .win{color:var(--yellow)}
+.sum-table .pnl-pos{color:var(--green)}.sum-table .pnl-neg{color:var(--red)}
 .empty{text-align:center;color:var(--text3);padding:32px 12px;font-size:13px}
 .sheet{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:300;display:none;align-items:flex-end}
 .sheet.on{display:flex}
@@ -138,8 +146,10 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
 
     <!-- 统计 -->
     <div id="pg-stats" class="page">
+      <div class="card"><div class="card-title">注单统计汇总</div><div id="stats-summary"></div></div>
       <div id="stats-kpi" class="kpi"></div>
-      <div class="card"><div class="card-title">客户汇总</div><div id="stats-clients"></div></div>
+      <div class="card"><div class="card-title">客户注单明细</div><div id="stats-clients"></div></div>
+      <div class="card" id="stats-settle-card" style="display:none"><div class="card-title">最近结算 · 输赢汇总</div><div id="stats-settle-summary"></div></div>
       <div class="card"><div class="card-title">特码 TOP</div><div id="stats-top"></div></div>
       <div class="card"><div class="card-title">49号热力图</div><div id="stats-heat" class="heat"></div></div>
       <div class="card"><div class="card-title">平特肖 / 生肖 / 尾数</div><div id="stats-other"></div></div>
@@ -241,7 +251,7 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
 </div>
 
 <script>
-const APP_VER='2026.8.0';
+const APP_VER='2026.8.1';
 (function(){const u=new URL(location.href);if(u.searchParams.get('v')!==APP_VER){u.searchParams.set('v',APP_VER);location.replace(u.toString())}})();
 const ZOD_ORDER=['鼠','牛','虎','兔','龙','蛇','马','羊','猴','鸡','狗','猪'];
 const ZOD_E={鼠:'🐭',牛:'🐮',虎:'🐯',兔:'🐰',龙:'🐲',蛇:'🐍',马:'🐴',羊:'🐑',猴:'🐵',鸡:'🐔',狗:'🐶',猪:'🐷'};
@@ -252,7 +262,7 @@ const TL={tema:'特码',zodiac:'生肖',ptx:'平特肖',wei:'尾数'};
 let ZOD_NUMS={鼠:[7,19,31,43],牛:[6,18,30,42],虎:[5,17,29,41],兔:[4,16,28,40],龙:[3,15,27,39],蛇:[2,14,26,38],马:[1,13,25,37,49],羊:[12,24,36,48],猴:[11,23,35,47],鸡:[10,22,34,46],狗:[9,21,33,45],猪:[8,20,32,44]};
 let NUM_ZOD={},ZOD_YEAR=2026,ZOD_YEAR_ANIMAL='马',clients=[];
 const IS_WECHAT=/MicroMessenger/i.test(navigator.userAgent);
-const SK={zodiac:'lhc_m_zodiac',odds:'lhc_m_odds',bets:'lhc_m_bets',wx:'lhc_m_wx'};
+const SK={zodiac:'lhc_m_zodiac',odds:'lhc_m_odds',bets:'lhc_m_bets',wx:'lhc_m_wx',lastSettle:'lhc_m_last_settle'};
 let lastClip='',wxAuto=true,wxAutoAdd=false;
 function allBets(){return clients.flatMap(c=>c.bets)}
 function setPasteStatus(msg,type){const el=document.getElementById('paste-status');if(!el)return;el.textContent=msg||'';el.className='paste-status'+(type?' '+type:'');if(msg)setTimeout(()=>{if(el.textContent===msg){el.textContent='';el.className='paste-status'}},3500)}
@@ -322,7 +332,7 @@ function initWeChat(){
 function stGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
 function stSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
 function stDel(k){try{localStorage.removeItem(k)}catch(e){}}
-function clearAllData(){clients=[];document.getElementById('raw').value='';document.getElementById('cname').value='';document.getElementById('preview-box').style.display='none';['lhc_m_bets','lhc_m_zodiac','lhc_m_odds','lhc_zodiac_v5','lhc_odds_v5','lhc_mobile_bets'].forEach(k=>{try{localStorage.removeItem(k)}catch(e){}});renderClients();updateHeader();toast('已清空全部数据')}
+function clearAllData(){clients=[];document.getElementById('raw').value='';document.getElementById('cname').value='';document.getElementById('preview-box').style.display='none';['lhc_m_bets','lhc_m_zodiac','lhc_m_odds','lhc_m_last_settle','lhc_zodiac_v5','lhc_odds_v5','lhc_mobile_bets'].forEach(k=>{try{localStorage.removeItem(k)}catch(e){}});renderClients();updateHeader();toast('已清空全部数据')}
 
 function rebuildNumZod(){NUM_ZOD={};ZOD_ORDER.forEach(z=>(ZOD_NUMS[z]||[]).forEach(n=>NUM_ZOD[n]=z))}
 function buildZodiacByYear(a){const s=ZOD_ORDER.indexOf(a),m={};ZOD_ORDER.forEach(z=>m[z]=[]);for(let n=1;n<=49;n++)m[ZOD_ORDER[(s-((n-1)%12)+12)%12]].push(n);return m}
@@ -645,9 +655,126 @@ function previewParse(){
 function clearInput(){document.getElementById('raw').value='';document.getElementById('cname').value='';document.getElementById('preview-box').style.display='none';setPasteStatus('')}
 function fillDemo(){document.getElementById('raw').value='牛各号50元\n猪鸡狗猴各数50\n羊各斤100\n01.02.03各30\n26.41.32名20\n平特马3000块\n尾0 500'}
 
+function betTypeKey(b){return isPtxBet(b)?'ptx':(b.type||'tema')}
+function emptyTypeAgg(){return{bet:0,count:0,win:0,winCount:0,rebate:0,payout:0}}
+function collectBetStats(bets){
+  const by={tema:emptyTypeAgg(),ptx:emptyTypeAgg(),zodiac:emptyTypeAgg(),wei:emptyTypeAgg(),all:emptyTypeAgg()};
+  (bets||[]).forEach(b=>{
+    const k=betTypeKey(b);if(!by[k])return;
+    by[k].bet+=b.amt;by[k].count++;
+    by.all.bet+=b.amt;by.all.count++;
+  });
+  return by;
+}
+function collectSettleStats(ctx){
+  const by={tema:emptyTypeAgg(),ptx:emptyTypeAgg(),zodiac:emptyTypeAgg(),wei:emptyTypeAgg(),all:emptyTypeAgg()};
+  const clientRows=[];
+  clients.forEach(c=>{
+    const row={name:c.name,...emptyTypeAgg()};
+    c.bets.forEach(b=>{
+      const bet=cleanBet(b),k=betTypeKey(bet),x=calcPay(bet,ctx);
+      if(!by[k])return;
+      by[k].bet+=bet.amt;by[k].count++;by[k].rebate+=x.rebate;by[k].payout+=x.pay;
+      by.all.bet+=bet.amt;by.all.count++;by.all.rebate+=x.rebate;by.all.payout+=x.pay;
+      row.bet+=bet.amt;row.count++;row.rebate+=x.rebate;row.payout+=x.pay;
+      if(x.profit>0){by[k].win+=x.profit;by[k].winCount++;by.all.win+=x.profit;by.all.winCount++;row.win+=x.profit;row.winCount++}
+    });
+    row.pnl=housePnlNet(row.bet,row.payout);
+    clientRows.push(row);
+  });
+  return{by,clientRows,pnl:housePnlNet(by.all.bet,by.all.payout)};
+}
+function fmtMoney(n){return'¥'+Math.round(n).toLocaleString()}
+function pnlClass(n){return n>=0?'pnl-pos':'pnl-neg'}
+function renderTypeTable(by,opts){
+  const rows=[['tema','特码'],['ptx','平特肖'],['zodiac','生肖'],['wei','尾数']];
+  const showSettle=!!opts?.settle;
+  const head=showSettle
+    ?'<tr><th>玩法</th><th>注数</th><th>下注</th><th>中奖</th><th>回水</th><th>派彩</th><th>盈亏</th></tr>'
+    :'<tr><th>玩法</th><th>注数</th><th>下注</th></tr>';
+  let body=rows.map(([k,lb])=>{
+    const t=by[k];if(!t||!t.count)return'';
+    const cells=showSettle
+      ?`<td>${t.count}</td><td>${fmtMoney(t.bet)}</td><td class="win">${fmtMoney(t.win)}</td><td>${fmtMoney(t.rebate)}</td><td>${fmtMoney(t.payout)}</td><td class="${pnlClass(housePnlNet(t.bet,t.payout))}">${fmtPnl(housePnlNet(t.bet,t.payout))}</td>`
+      :`<td>${t.count}</td><td class="tot">${fmtMoney(t.bet)}</td>`;
+    return`<tr><td>${lb}</td>${cells}</tr>`;
+  }).join('');
+  const a=by.all;
+  const totCells=showSettle
+    ?`<td>${a.count}</td><td>${fmtMoney(a.bet)}</td><td class="win">${fmtMoney(a.win)}</td><td>${fmtMoney(a.rebate)}</td><td>${fmtMoney(a.payout)}</td><td class="${pnlClass(housePnlNet(a.bet,a.payout))}">${fmtPnl(housePnlNet(a.bet,a.payout))}</td>`
+    :`<td>${a.count}</td><td class="tot">${fmtMoney(a.bet)}</td>`;
+  body+=`<tr><td>合计</td>${totCells}</tr>`;
+  return`<table class="sum-table">${head}${body}</table>`;
+}
+function renderClientBetRows(){
+  return clients.map((c,i)=>{
+    const by=collectBetStats(c.bets);
+    const parts=[];
+    if(by.tema.count)parts.push(`特码${by.tema.count}注 ${fmtMoney(by.tema.bet)}`);
+    if(by.ptx.count)parts.push(`平特${by.ptx.count}注 ${fmtMoney(by.ptx.bet)}`);
+    if(by.zodiac.count)parts.push(`生肖${by.zodiac.count}注 ${fmtMoney(by.zodiac.bet)}`);
+    if(by.wei.count)parts.push(`尾${by.wei.count}注 ${fmtMoney(by.wei.bet)}`);
+    return`<div class="list-row" style="align-items:flex-start">
+      <span>${i+1}. <span class="badge bclient">${c.name}</span><br><span style="font-size:11px;color:var(--text3)">${parts.join(' · ')||'—'}</span></span>
+      <strong style="text-align:right">${fmtMoney(by.all.bet)}<br><span style="font-size:11px;color:var(--text3);font-weight:400">${by.all.count}注</span></strong>
+    </div>`;
+  }).join('');
+}
+function renderClientSettleRows(clientRows){
+  return clientRows.map((r,i)=>`<div class="list-row" style="align-items:flex-start;font-size:13px">
+    <span>${i+1}. <span class="badge bclient">${r.name}</span>${r.winCount?` · ${r.winCount}笔中`:''}</span>
+    <span style="text-align:right;line-height:1.6">
+      下注 ${fmtMoney(r.bet)}<br>
+      <span style="color:var(--yellow)">中奖 ${fmtMoney(r.win)}</span> · 派彩 ${fmtMoney(r.payout)}<br>
+      <strong class="${pnlClass(r.pnl)}">${fmtPnl(r.pnl)}</strong>
+    </span>
+  </div>`).join('');
+}
+function renderSettleSummary(legacy,ctx,balls){
+  const st=collectSettleStats(ctx);
+  const ballStr=balls.slice(0,6).map(n=>String(n).padStart(2,'0')).join(' ')+' + '+String(balls[6]).padStart(2,'0');
+  return`<div class="card" style="border-color:#3d5a3d">
+    <div class="card-title">输赢统计汇总</div>
+    <div class="hint" style="margin-bottom:10px">开奖 ${ballStr}</div>
+    ${renderTypeTable(st.by,{settle:true})}
+    <div class="card-title" style="margin-top:16px">分客户盈亏</div>
+    ${renderClientSettleRows(st.clientRows)||'<div class="empty">无客户</div>'}
+  </div>`;
+}
+function saveLastSettle(balls,legacy,ctx){
+  try{
+    const st=collectSettleStats(ctx);
+    stSet(SK.lastSettle,JSON.stringify({ver:APP_VER,balls,totB:legacy.totB,pnl:legacy.pnl,sum:legacy.sum,by:st.by,clientRows:st.clientRows,ts:Date.now()}));
+  }catch(e){}
+}
+function renderLastSettleOnStats(){
+  const card=document.getElementById('stats-settle-card'),box=document.getElementById('stats-settle-summary');
+  if(!card||!box)return;
+  try{
+    const raw=stGet(SK.lastSettle);if(!raw){card.style.display='none';return}
+    const d=JSON.parse(raw);
+    const ballStr=(d.balls||[]).slice(0,6).map(n=>String(n).padStart(2,'0')).join(' ')+' + '+String((d.balls||[])[6]||'').padStart(2,'0');
+    card.style.display='block';
+    box.innerHTML=`<div class="hero" style="font-size:28px;color:${d.pnl>=0?'var(--green)':'var(--red)'}">${fmtPnl(d.pnl)}</div>
+      <div class="hint" style="text-align:center;margin-bottom:10px">开奖 ${ballStr} · ${pnlFormulaText(d.totB,d.sum?.payout||0)}</div>
+      ${renderTypeTable(d.by,{settle:true})}
+      <div style="margin-top:12px">${renderClientSettleRows(d.clientRows||[])}</div>`;
+  }catch(e){card.style.display='none'}
+}
+
 function renderStats(){
   const bets=allBets();
-  if(!bets.length){document.getElementById('stats-kpi').innerHTML='';document.getElementById('stats-clients').innerHTML='<div class="empty">请先录入并统计</div>';document.getElementById('stats-top').innerHTML='<div class="empty">请先录入并统计</div>';return}
+  if(!bets.length){
+    document.getElementById('stats-summary').innerHTML='<div class="empty">请先录入注单</div>';
+    document.getElementById('stats-kpi').innerHTML='';
+    document.getElementById('stats-clients').innerHTML='<div class="empty">请先录入并统计</div>';
+    document.getElementById('stats-top').innerHTML='<div class="empty">请先录入并统计</div>';
+    document.getElementById('stats-settle-card').style.display='none';
+    return;
+  }
+  const by=collectBetStats(bets);
+  document.getElementById('stats-summary').innerHTML=renderTypeTable(by);
+  renderLastSettleOnStats();
   const tot=bets.reduce((a,b)=>a+b.amt,0),tm={},px={},zo={},wei={};
   bets.forEach(b=>{
     if(b.type==='tema')tm[b.num]=(tm[b.num]||0)+b.amt;
@@ -663,10 +790,7 @@ function renderStats(){
     <div class="kpi-item"><div class="lb">平特肖</div><div class="vl" style="color:var(--purple)">¥${pt.toLocaleString()}</div></div>
     <div class="kpi-item"><div class="lb">尾数</div><div class="vl">¥${wt.toLocaleString()}</div></div>
     <div class="kpi-item"><div class="lb">特码回水</div><div class="vl" style="color:var(--green)">¥${calcRebateTotal(bets).toLocaleString(undefined,{maximumFractionDigits:1})}</div></div>`;
-  document.getElementById('stats-clients').innerHTML=clients.map((c,i)=>{
-    const ct=c.bets.reduce((a,b)=>a+b.amt,0);
-    return`<div class="list-row"><span>${i+1}. ${c.name}</span><strong>¥${ct.toLocaleString()} · ${c.bets.length}注</strong></div>`;
-  }).join('');
+  document.getElementById('stats-clients').innerHTML=renderClientBetRows();
   document.getElementById('stats-top').innerHTML=keys.slice(0,15).map((n,i)=>`<div class="list-row"><span>${i+1}. ${String(n).padStart(2,'0')} ${ZOD_E[NUM_ZOD[n]]}${NUM_ZOD[n]}</span><strong>¥${tm[n].toLocaleString()}</strong></div>`).join('')||'<div class="empty">无特码</div>';
   const mx=keys.length?tm[keys[0]]:0;
   let h='';for(let n=1;n<=49;n++){const a=tm[n]||0,r=mx?a/mx:0;h+=`<div class="hcell" style="background:rgba(74,159,255,${0.08+r*0.7})"><div class="n">${String(n).padStart(2,'0')}</div><div class="a">${a?'¥'+a:'-'}</div></div>`}
@@ -723,7 +847,9 @@ function doSettle(){
   const legacy=settleGrandLegacy(ctx);
   const{clientStats,wins}=buildSettleDetail(ctx);
   const winCount=clientStats.filter(c=>c.hitWin).length;
+  saveLastSettle(balls,legacy,ctx);
   document.getElementById('settle-out').innerHTML=`${renderPnlCard(legacy,balls)}
+    ${renderSettleSummary(legacy,ctx,balls)}
     <div class="card"><div class="card-title">中奖客户 ${winCount} 位</div>${renderWinCustomers(clientStats)}</div>
     <div class="card"><div class="card-title">中奖注单 ${wins.length} 笔</div><div class="hint" style="margin-bottom:8px">${getTemaMode()==='macau'?'特码：单注×(47−号码数)':'特码：单注×'+getO('tema')} · 平特：1:1 · v${APP_VER}</div>${renderWinDetails(wins)}</div>`;
   toast('结算完成 v'+APP_VER);
