@@ -11,7 +11,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>六合彩统计器 v2026.7.6</title>
+<title>澳门六合彩统计器 v2026.8.0</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
@@ -73,6 +73,9 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
 .set-row input{width:100%;text-align:center;font-size:22px;font-weight:700;color:#fff;background:#283350;border:1px solid #4a5f8a;border-radius:10px;padding:10px 6px;-moz-appearance:textfield;appearance:textfield}
 .set-row input:focus{border-color:var(--blue);background:#2f3d5c;outline:none}
 .set-row input::-webkit-outer-spin-button,.set-row input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.set-row select{width:100%;font-size:14px;font-weight:600;color:#fff;background:#283350;border:1px solid #4a5f8a;border-radius:10px;padding:10px 8px}
+.rule-box{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px;margin-top:10px;font-size:12px;line-height:1.7;color:var(--text2)}
+.rule-box strong{color:var(--text)}
 .empty{text-align:center;color:var(--text3);padding:32px 12px;font-size:13px}
 .sheet{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:300;display:none;align-items:flex-end}
 .sheet.on{display:flex}
@@ -94,8 +97,8 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
 <body>
 <div class="app">
   <header class="topbar">
-    <h1>六合彩统计器 <span id="hdr-year" style="font-size:13px;color:var(--blue)"></span></h1>
-    <div class="sub">注单统计 · 风险分析 · 开奖结算 · <span id="app-ver"></span></div>
+    <h1>澳门六合彩统计器 <span id="hdr-year" style="font-size:13px;color:var(--blue)"></span></h1>
+    <div class="sub">澳门派彩规则 · 注单统计 · 开奖结算 · <span id="app-ver"></span></div>
     <div class="total-pill" id="hdr-total">总投注 ¥0 · 0客户</div>
   </header>
 
@@ -175,15 +178,24 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
         <button class="btn btn-primary" style="margin-top:10px" onclick="saveZodiac()">保存生肖卡</button>
       </div>
       <div class="card">
-        <div class="card-title">赔率</div>
-        <div class="hint" style="margin-bottom:8px">特码派彩=下注×赔率 · 平特派彩=赢利(1:1) · 输赢盈亏=总投注−派彩合计</div>
-        <div class="set-row"><span>特码赔率</span><input type="number" id="o-tema" value="47" step="0.5" inputmode="decimal" oninput="updateRebateHint()"></div>
-        <div class="set-row"><span>平特肖赔率</span><span style="text-align:right;color:var(--text2);font-size:14px">1:1 固定（投多少赢多少）</span></div>
+        <div class="card-title">澳门派彩规则</div>
+        <div class="rule-box" id="macau-rules-box"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">赔率设置</div>
+        <div class="set-row"><span>特码基准赔率</span><input type="number" id="o-tema" value="47" step="0.5" inputmode="decimal" oninput="updateMacauRulesHint()"></div>
+        <div class="set-row"><span>特码算法</span>
+          <select id="o-tema-mode" onchange="updateMacauRulesHint()">
+            <option value="macau" selected>澳门扣号 (47−号码数)</option>
+            <option value="full">满赔率 (下注×47)</option>
+          </select>
+        </div>
+        <div class="set-row"><span>平特肖</span><span style="text-align:right;color:var(--text2);font-size:14px">1:1 固定</span></div>
         <div class="set-row"><span>平特尾赔率</span><input type="number" id="o-wei" value="0.8" step="0.05" inputmode="decimal"></div>
         <div class="set-row"><span>生肖赔率</span><input type="number" id="o-zod" value="1" step="0.1" inputmode="decimal"></div>
-        <div class="card-title" style="margin-top:14px">回水设置（仅特码，0=不回水）</div>
-        <div class="set-row"><span>特码总投注回水%</span><input type="number" id="o-huishui" value="4" step="0.1" min="0" inputmode="decimal" oninput="updateRebateHint()"></div>
-        <button class="btn btn-primary" style="margin-top:10px" onclick="saveOdds()">保存赔率</button>
+        <div class="card-title" style="margin-top:14px">回水（仅特码，无论中否）</div>
+        <div class="set-row"><span>特码回水%</span><input type="number" id="o-huishui" value="4" step="0.1" min="0" inputmode="decimal" oninput="updateMacauRulesHint()"></div>
+        <button class="btn btn-primary" style="margin-top:10px" onclick="saveOdds()">保存设置</button>
         <div class="hint" id="rebate-hint" style="margin-top:10px"></div>
       </div>
       <div class="card">
@@ -195,9 +207,10 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
         <div class="card-title">使用说明</div>
         <div class="hint">
           ① 粘贴注单 → 填客户名 → 点「添加客户注单」<br>
-          ② 可连续添加多位客户，再查看统计 / 风险 / 结算<br>
-          ③ 数据保存在本机浏览器，不上传服务器<br>
-          ④ <strong>微信</strong>：复制注单后返回页面自动填入，或点「从微信粘贴注单」
+          ② 设置页确认「澳门派彩规则」与赔率<br>
+          ③ 录入开奖 6正+1特 → 立即结算<br>
+          ④ 输赢盈亏 = 总投注 − 派彩合计（中奖+回水）<br>
+          ⑤ <strong>微信</strong>：复制注单后返回页面自动填入
         </div>
       </div>
       <div class="card" id="wechat-settings" style="display:none">
@@ -228,7 +241,7 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
 </div>
 
 <script>
-const APP_VER='2026.7.6';
+const APP_VER='2026.8.0';
 (function(){const u=new URL(location.href);if(u.searchParams.get('v')!==APP_VER){u.searchParams.set('v',APP_VER);location.replace(u.toString())}})();
 const ZOD_ORDER=['鼠','牛','虎','兔','龙','蛇','马','羊','猴','鸡','狗','猪'];
 const ZOD_E={鼠:'🐭',牛:'🐮',虎:'🐯',兔:'🐰',龙:'🐲',蛇:'🐍',马:'🐴',羊:'🐑',猴:'🐵',鸡:'🐔',狗:'🐶',猪:'🐷'};
@@ -313,12 +326,18 @@ function clearAllData(){clients=[];document.getElementById('raw').value='';docum
 
 function rebuildNumZod(){NUM_ZOD={};ZOD_ORDER.forEach(z=>(ZOD_NUMS[z]||[]).forEach(n=>NUM_ZOD[n]=z))}
 function buildZodiacByYear(a){const s=ZOD_ORDER.indexOf(a),m={};ZOD_ORDER.forEach(z=>m[z]=[]);for(let n=1;n<=49;n++)m[ZOD_ORDER[(s-((n-1)%12)+12)%12]].push(n);return m}
-const ODDS_DEF={tema:47,huishui:4,wei:0.8,zod:1};
+const ODDS_DEF={tema:47,huishui:4,wei:0.8,zod:1,tema_mode:'macau'};
 function getO(k){
   const v=parseFloat(document.getElementById('o-'+k)?.value);
   if(!isNaN(v))return v;
   try{const o=JSON.parse(stGet(SK.odds)||'{}');if(o[k]!=null&&!isNaN(parseFloat(o[k])))return parseFloat(o[k])}catch(e){}
   return ODDS_DEF[k]||0;
+}
+function getTemaMode(){
+  const el=document.getElementById('o-tema-mode');
+  if(el?.value)return el.value;
+  try{const o=JSON.parse(stGet(SK.odds)||'{}');if(o.tema_mode)return o.tema_mode}catch(e){}
+  return'macau';
 }
 function cleanBet(b){
   if(!b||typeof b!=='object')return b;
@@ -330,16 +349,25 @@ function rebateRate(){return getO('huishui')/100}
 function temaBetTotal(bets){return betTotalByType(bets,'tema')}
 function calcRebateTotal(bets){return temaBetTotal(bets)*rebateRate()}
 function betRebate(b){return b.type==='tema'?b.amt*rebateRate():0}
-function updateRebateHint(){
-  const el=document.getElementById('rebate-hint');if(!el)return;
-  const temaTot=temaBetTotal(),rb=calcRebateTotal(),pct=getO('huishui');
-  el.innerHTML=`<strong>回水计算（仅特码，无论中否都退）：</strong><br>
-    回水 = 特码总投注 × ${pct}%（平特/尾数/生肖不回水）<br>
-    例：特码5115×4% = 204.6<br>
-    输赢盈亏=总投注−派彩合计${temaTot?`<br>当前：特码投注 ¥${temaTot.toLocaleString()} · 回水 ¥${rb.toLocaleString(undefined,{maximumFractionDigits:1})}`:''}`;
+function updateMacauRulesHint(){
+  const rules=document.getElementById('macau-rules-box');
+  const hint=document.getElementById('rebate-hint');
+  const base=getO('tema'),mode=getTemaMode(),pct=getO('huishui');
+  const temaTot=temaBetTotal(),rb=calcRebateTotal();
+  const temaLine=mode==='full'
+    ?`<strong>特码</strong>：中奖金额 = 单注 × ${base}（满赔率，不扣号）`
+    :`<strong>特码</strong>：有效赔率 = ${base} − 同组号码数；中奖金额 = 单注 × 有效赔率<br>例：18码各400 → 400×(${base}−18)=400×${Math.max(0,base-18)}`;
+  if(rules)rules.innerHTML=`${temaLine}<br>
+    <strong>平特肖</strong>：7个开奖号任一属于该生肖即中，1:1 中奖=下注额<br>
+    <strong>生肖</strong>：特码生肖命中，中奖 = 下注 × 生肖赔率<br>
+    <strong>尾数</strong>：7个号任一尾数命中，中奖 = 下注 × 尾赔率<br>
+    <strong>回水</strong>：特码总投 × ${pct}%（无论中否）<br>
+    <strong>庄家盈亏</strong>：总投注 − 派彩合计（中奖+回水）`;
+  if(hint)hint.innerHTML=temaTot?`当前特码投注 ¥${temaTot.toLocaleString()} · 回水 ¥${rb.toLocaleString(undefined,{maximumFractionDigits:1})}`:'保存后生效';
 }
+function updateRebateHint(){updateMacauRulesHint()}
 function toast(){}
-function go(id,btn){document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));document.getElementById('pg-'+id).classList.add('on');document.querySelectorAll('.bnav button').forEach(b=>b.classList.remove('on'));if(btn)btn.classList.add('on');if(id==='stats')renderStats();if(id==='risk')renderRisk();if(id==='more')renderZodList();if(id==='settle')initBallInputs()}
+function go(id,btn){document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));document.getElementById('pg-'+id).classList.add('on');document.querySelectorAll('.bnav button').forEach(b=>b.classList.remove('on'));if(btn)btn.classList.add('on');if(id==='stats')renderStats();if(id==='risk')renderRisk();if(id==='more'){renderZodList();updateMacauRulesHint()}if(id==='settle')initBallInputs()}
 function closeSheet(){document.getElementById('sheet').classList.remove('on')}
 function ga(n){let bs='绿';if(RED.has(n))bs='红';else if(BLUE.has(n))bs='蓝';return{bs,zod:NUM_ZOD[n]||'?'}}
 
@@ -453,9 +481,13 @@ function parseText(text){
   return{bets:out,log,errs};
 }
 
-// ===== 赔付（特码中奖=下注×赔率；平特中奖=赢利1:1；输赢=总投注−派彩合计）=====
+// ===== 澳门六合彩派彩引擎 =====
 const PTX_ODDS=1;
-function temaWinPayout(b){return Math.max(0,b.amt*getO('tema'))}
+function temaEffectiveOdds(b){
+  const base=getO('tema'),n=b.numCount||1;
+  return getTemaMode()==='full'?base:Math.max(0,base-n);
+}
+function temaWinAmount(b){return Math.max(0,b.amt*temaEffectiveOdds(b))}
 function betContentLabel(b){
   if(b.type==='tema'&&b.num!=null)return String(b.num).padStart(2,'0')+'号';
   if(b.label)return b.label;
@@ -515,8 +547,10 @@ function calcPay(b,ctx){
   let w=0,r=betRebate(b),wt='';
   if(b.type==='tema'){
     if(ctx.temaNum!=null&&b.num===ctx.temaNum){
-      w=temaWinPayout(b);
-      wt=`特码 ${b.amt}×${getO('tema')}=${Math.round(w)}`;
+      const eo=temaEffectiveOdds(b);w=temaWinAmount(b);
+      wt=getTemaMode()==='full'
+        ?`特码 ${b.amt}×${getO('tema')}=${Math.round(w)}`
+        :`特码 ${getO('tema')}-${b.numCount||1}=${eo} · ${b.amt}×${eo}=${Math.round(w)}`;
     }else wt=r>0?'回水':'未中';
   }else if(b.type==='zodiac'&&ctx.temaNum!=null&&b.sub===ga(ctx.temaNum).zod){
     w=b.amt*getO('zod');wt='生肖命中';
@@ -548,7 +582,6 @@ function settleGrandLegacy(ctx){
     rows.push({name:c.name,bet:ct,payout:cs.payout,profit:cs.profit,winAmt:cs.winAmt,rebate:cs.r});
   });
   sum.temaTot=temaBetTotal(clients.flatMap(c=>c.bets));
-  sum.r=calcRebateTotal(clients.flatMap(c=>c.bets));
   return{totB,sum,pnl:housePnlNet(totB,sum.payout),rows};
 }
 function renderPnlCard(legacy,balls){
@@ -563,7 +596,8 @@ function renderPnlCard(legacy,balls){
       <div class="kpi-item"><div class="lb">总投注</div><div class="vl">¥${Math.round(legacy.totB).toLocaleString()}</div></div>
       <div class="kpi-item"><div class="lb">派彩合计</div><div class="vl" style="color:var(--yellow)">¥${Math.round(s.payout).toLocaleString(undefined,{maximumFractionDigits:1})}</div></div>
     </div>
-    <div class="hint" style="margin-top:8px;text-align:center">派彩=中奖¥${Math.round(s.profit).toLocaleString()}+回水¥${(s.r||0).toLocaleString(undefined,{maximumFractionDigits:1})}</div>
+    <div class="hint" style="margin-top:8px;text-align:center">派彩合计 = 中奖¥${Math.round(s.profit).toLocaleString()} + 回水¥${(s.r||0).toLocaleString(undefined,{maximumFractionDigits:1})}</div>
+    <div class="hint" style="margin-top:4px;text-align:center;color:var(--text2)">${getTemaMode()==='macau'?'特码澳门扣号':'特码满赔率'} · 平特1:1 · v${APP_VER}</div>
   </div>`;
 }
 
@@ -691,7 +725,7 @@ function doSettle(){
   const winCount=clientStats.filter(c=>c.hitWin).length;
   document.getElementById('settle-out').innerHTML=`${renderPnlCard(legacy,balls)}
     <div class="card"><div class="card-title">中奖客户 ${winCount} 位</div>${renderWinCustomers(clientStats)}</div>
-    <div class="card"><div class="card-title">中奖注单 ${wins.length} 笔</div><div class="hint" style="margin-bottom:8px">特码中奖=下注×${getO('tema')} · 平特中奖=下注(1:1) · v${APP_VER}</div>${renderWinDetails(wins)}</div>`;
+    <div class="card"><div class="card-title">中奖注单 ${wins.length} 笔</div><div class="hint" style="margin-bottom:8px">${getTemaMode()==='macau'?'特码：单注×(47−号码数)':'特码：单注×'+getO('tema')} · 平特：1:1 · v${APP_VER}</div>${renderWinDetails(wins)}</div>`;
   toast('结算完成 v'+APP_VER);
 }
 
@@ -709,11 +743,11 @@ function saveZodiac(){
   ZOD_NUMS=m;rebuildNumZod();stSet(SK.zodiac,JSON.stringify({year:ZOD_YEAR,yearAnimal:ZOD_YEAR_ANIMAL,nums:ZOD_NUMS}));
   document.getElementById('hdr-year').textContent=ZOD_YEAR+ZOD_YEAR_ANIMAL+'年';toast('生肖卡已保存');
 }
-function saveOdds(){const o={ptx:PTX_ODDS};['tema','huishui','wei','zod'].forEach(k=>{const el=document.getElementById('o-'+k);if(el)o[k]=el.value});stSet(SK.odds,JSON.stringify(o));updateRebateHint();toast('赔率已保存')}
+function saveOdds(){const o={ptx:PTX_ODDS,tema_mode:getTemaMode()};['tema','huishui','wei','zod'].forEach(k=>{const el=document.getElementById('o-'+k);if(el)o[k]=el.value});stSet(SK.odds,JSON.stringify(o));updateMacauRulesHint();toast('澳门派彩设置已保存')}
 function saveBets(){stSet(SK.bets,JSON.stringify({clients:clients.map(c=>({...c,bets:c.bets.map(cleanBet)}))}))}
 function loadAll(){
   try{const z=stGet(SK.zodiac);if(z){const d=JSON.parse(z);if(d.nums){ZOD_NUMS=d.nums;ZOD_YEAR=d.year||2026;ZOD_YEAR_ANIMAL=d.yearAnimal||'马'}}}catch(e){}
-  try{const o=stGet(SK.odds);if(o){Object.entries(JSON.parse(o)).forEach(([k,v])=>{const el=document.getElementById('o-'+k);if(el)el.value=v})}}catch(e){}
+  try{const o=stGet(SK.odds);if(o){const d=JSON.parse(o);Object.entries(d).forEach(([k,v])=>{const el=document.getElementById('o-'+k);if(el)el.value=v});if(d.tema_mode){const m=document.getElementById('o-tema-mode');if(m)m.value=d.tema_mode}}catch(e){}
   try{
     const b=stGet(SK.bets);
     if(b){
@@ -724,7 +758,7 @@ function loadAll(){
   }catch(e){}
   rebuildNumZod();renderClients();updateHeader();
 }
-rebuildNumZod();loadAll();initBallInputs();initWeChat();updateRebateHint();
+rebuildNumZod();loadAll();initBallInputs();initWeChat();updateMacauRulesHint();
 document.getElementById('app-ver').textContent='v'+APP_VER;
 </script>
 </body>
