@@ -11,7 +11,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>澳门六合彩统计器 v2026.8.3</title>
+<title>澳门六合彩统计器 v2026.8.4</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
@@ -219,7 +219,7 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
           ① 粘贴注单 → 填客户名 → 点「添加客户注单」<br>
           ② 设置页确认「澳门派彩规则」与赔率<br>
           ③ 录入开奖 6正+1特 → 立即结算<br>
-          ④ 输赢盈亏 = 总投注 − 派彩合计（中奖+回水）<br>
+          ④ 输赢盈亏 = 本金 − 派彩（客户给你的 − 你付出去的）<br>
           ⑤ <strong>微信</strong>：复制注单后返回页面自动填入
         </div>
       </div>
@@ -251,7 +251,7 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
 </div>
 
 <script>
-const APP_VER='2026.8.3';
+const APP_VER='2026.8.4';
 (function(){const u=new URL(location.href);if(u.searchParams.get('v')!==APP_VER){u.searchParams.set('v',APP_VER);location.replace(u.toString())}})();
 const ZOD_ORDER=['鼠','牛','虎','兔','龙','蛇','马','羊','猴','鸡','狗','猪'];
 const ZOD_E={鼠:'🐭',牛:'🐮',虎:'🐯',兔:'🐰',龙:'🐲',蛇:'🐍',马:'🐴',羊:'🐑',猴:'🐵',鸡:'🐔',狗:'🐶',猪:'🐷'};
@@ -368,11 +368,11 @@ function updateMacauRulesHint(){
     ?`<strong>特码</strong>：中奖金额 = 单注 × ${base}（满赔率，不扣号）`
     :`<strong>特码</strong>：有效赔率 = ${base} − 同组号码数；中奖金额 = 单注 × 有效赔率<br>例：18码各400 → 400×(${base}−18)=400×${Math.max(0,base-18)}`;
   if(rules)rules.innerHTML=`${temaLine}<br>
-    <strong>平特肖</strong>：7个开奖号任一属于该生肖即中，1:1 中奖=下注额，盈亏=中奖−下注(中为0)<br>
+    <strong>平特肖</strong>：7个开奖号任一属于该生肖即中，1:1 中奖=下注额<br>
     <strong>生肖</strong>：特码生肖命中，中奖 = 下注 × 生肖赔率<br>
     <strong>尾数</strong>：7个号任一尾数命中，中奖 = 下注 × 尾赔率<br>
-    <strong>回水</strong>：特码总投 × ${pct}%（无论中否）<br>
-    <strong>庄家盈亏</strong>：总投注 − 派彩合计（中奖+回水）`;
+    <strong>回水</strong>：特码总投 × ${pct}%（无论中否，计入派彩）<br>
+    <strong>庄家盈亏</strong>：本金 − 派彩（客户给你的本金，减去你要付出去的派彩）`;
   if(hint)hint.innerHTML=temaTot?`当前特码投注 ¥${temaTot.toLocaleString()} · 回水 ¥${rb.toLocaleString(undefined,{maximumFractionDigits:1})}`:'保存后生效';
 }
 function updateRebateHint(){updateMacauRulesHint()}
@@ -576,20 +576,9 @@ function calcPay(b,ctx){
   return{profit:w,rebate:r,winAmt,pay:customerPayout(b,w,r),winType:wt};
 }
 function calcPayLegacy(b,ctx){return calcPay(b,ctx)}
-function housePnlNet(bet,payout){return bet-(payout||0)}
-function housePnlBet(bet,x){
-  if(isPtxBet(bet))return bet.amt-(x.profit||0);
-  return bet.amt-(x.pay||0);
-}
-function typeHousePnl(k,t){
-  if(k==='ptx')return t.bet-t.win;
-  return t.bet-t.payout;
-}
-function typeNetPayout(k,t){
-  if(k==='ptx')return Math.max(0,t.win-t.bet);
-  return t.payout;
-}
-function pnlFormulaText(bet,payout){return`总投注 ¥${Math.round(bet).toLocaleString()} − 派彩 ¥${Math.round(payout||0).toLocaleString()}`}
+function housePnlNet(principal,payout){return(principal||0)-(payout||0)}
+function typeHousePnl(t){return t.bet-t.payout}
+function pnlFormulaText(principal,payout){return`本金 ¥${Math.round(principal).toLocaleString()} − 派彩 ¥${Math.round(payout||0).toLocaleString()}`}
 function fmtPnl(n){return`${n>=0?'+':'-'}¥${Math.round(Math.abs(n)).toLocaleString()}`}
 function calcRisk(b,n){return calcPay(b,{temaNum:n,hitZods:new Set([ga(n).zod]),hitTails:new Set([n%10])})}
 function settleGrandLegacy(ctx){
@@ -605,8 +594,8 @@ function settleGrandLegacy(ctx){
   });
   sum.temaTot=temaBetTotal(clients.flatMap(c=>c.bets));
   const st=collectSettleStats(ctx);
-  sum.by=st.by;sum.netPayout=st.by.all.netPayout;
-  return{totB,sum,pnl:st.pnl,rows};
+  sum.by=st.by;
+  return{totB,sum,pnl:housePnlNet(totB,sum.payout),rows};
 }
 function renderPnlBreakdown(by){
   if(!by)return'';
@@ -620,18 +609,17 @@ function renderPnlBreakdown(by){
 function renderPnlCard(legacy,balls){
   const s=legacy.sum,pnl=legacy.pnl,by=s.by;
   const ballStr=balls.slice(0,6).map(n=>String(n).padStart(2,'0')).join(' ')+' + '+String(balls[6]).padStart(2,'0');
-  const netPay=s.netPayout!=null?s.netPayout:s.payout;
   return`<div class="card" style="border-color:#4a5f8a">
     <div class="card-title">输赢盈亏</div>
     <div class="hint" style="margin-bottom:10px">开奖 ${ballStr}</div>
     <div class="hero" style="font-size:36px;color:${pnl>=0?'var(--green)':'var(--red)'}">${fmtPnl(pnl)}</div>
     <div class="hint" style="text-align:center;margin-bottom:8px">${renderPnlBreakdown(by)}</div>
-    <div class="hint" style="text-align:center;margin-bottom:12px">${pnlFormulaText(legacy.totB,netPay)} = ${fmtPnl(pnl)}</div>
+    <div class="hint" style="text-align:center;margin-bottom:12px">${pnlFormulaText(legacy.totB,s.payout)} = ${fmtPnl(pnl)}</div>
     <div class="kpi">
-      <div class="kpi-item"><div class="lb">总投注</div><div class="vl">¥${Math.round(legacy.totB).toLocaleString()}</div></div>
-      <div class="kpi-item"><div class="lb">净派彩合计</div><div class="vl" style="color:var(--yellow)">¥${Math.round(netPay).toLocaleString(undefined,{maximumFractionDigits:1})}</div></div>
+      <div class="kpi-item"><div class="lb">本金合计</div><div class="vl">¥${Math.round(legacy.totB).toLocaleString()}</div></div>
+      <div class="kpi-item"><div class="lb">派彩合计</div><div class="vl" style="color:var(--yellow)">¥${Math.round(s.payout).toLocaleString(undefined,{maximumFractionDigits:1})}</div></div>
     </div>
-    <div class="hint" style="margin-top:8px;text-align:center">平特1:1：中奖−下注=0计入合计 · 净派彩=特码中奖+回水+平特净0</div>
+    <div class="hint" style="margin-top:8px;text-align:center">盈亏 = 本金（客户付给你）− 派彩（你付给客户，含中奖+回水）</div>
     <div class="hint" style="margin-top:4px;text-align:center;color:var(--text2)">${getTemaMode()==='macau'?'特码澳门扣号':'特码满赔率'} · v${APP_VER}</div>
   </div>`;
 }
@@ -695,23 +683,20 @@ function collectSettleStats(ctx){
   const by={tema:emptyTypeAgg(),ptx:emptyTypeAgg(),zodiac:emptyTypeAgg(),wei:emptyTypeAgg(),all:emptyTypeAgg()};
   const clientRows=[];
   clients.forEach(c=>{
-    const row={name:c.name,...emptyTypeAgg(),pnl:0};
+    const row={name:c.name,...emptyTypeAgg()};
     c.bets.forEach(b=>{
       const bet=cleanBet(b),k=betTypeKey(bet),x=calcPay(bet,ctx);
       if(!by[k])return;
       by[k].bet+=bet.amt;by[k].count++;by[k].rebate+=x.rebate;by[k].payout+=x.pay;
       by.all.bet+=bet.amt;by.all.count++;by.all.rebate+=x.rebate;by.all.payout+=x.pay;
       row.bet+=bet.amt;row.count++;row.rebate+=x.rebate;row.payout+=x.pay;
-      row.pnl+=housePnlBet(bet,x);
       if(x.profit>0){by[k].win+=x.profit;by[k].winCount++;by.all.win+=x.profit;by.all.winCount++;row.win+=x.profit;row.winCount++}
     });
+    row.pnl=housePnlNet(row.bet,row.payout);
     clientRows.push(row);
   });
-  ['tema','ptx','zodiac','wei'].forEach(k=>{
-    if(by[k].count){by[k].pnl=typeHousePnl(k,by[k]);by[k].netPayout=typeNetPayout(k,by[k])}
-  });
-  by.all.pnl=['tema','ptx','zodiac','wei'].reduce((s,k)=>s+(by[k].pnl||0),0);
-  by.all.netPayout=['tema','ptx','zodiac','wei'].reduce((s,k)=>s+(by[k].netPayout||0),0);
+  ['tema','ptx','zodiac','wei'].forEach(k=>{if(by[k].count)by[k].pnl=typeHousePnl(by[k])});
+  by.all.pnl=housePnlNet(by.all.bet,by.all.payout);
   return{by,clientRows,pnl:by.all.pnl};
 }
 function fmtMoney(n){return'¥'+Math.round(n).toLocaleString()}
@@ -720,20 +705,19 @@ function renderTypeTable(by,opts){
   const rows=[['tema','特码'],['ptx','平特肖'],['zodiac','生肖'],['wei','尾数']];
   const showSettle=!!opts?.settle;
   const head=showSettle
-    ?'<tr><th>玩法</th><th>注数</th><th>下注</th><th>中奖</th><th>回水</th><th>派彩</th><th>盈亏</th></tr>'
-    :'<tr><th>玩法</th><th>注数</th><th>下注</th></tr>';
+    ?'<tr><th>玩法</th><th>注数</th><th>本金</th><th>中奖</th><th>回水</th><th>派彩</th><th>盈亏</th></tr>'
+    :'<tr><th>玩法</th><th>注数</th><th>本金</th></tr>';
   let body=rows.map(([k,lb])=>{
     const t=by[k];if(!t||!t.count)return'';
-    const pnl=showSettle?(t.pnl!=null?t.pnl:typeHousePnl(k,t)):0;
-    const netPay=showSettle?(t.netPayout!=null?t.netPayout:typeNetPayout(k,t)):0;
+    const pnl=showSettle?(t.pnl!=null?t.pnl:typeHousePnl(t)):0;
     const cells=showSettle
-      ?`<td>${t.count}</td><td>${fmtMoney(t.bet)}</td><td class="win">${fmtMoney(t.win)}</td><td>${fmtMoney(t.rebate)}</td><td>${fmtMoney(netPay)}${k==='ptx'&&t.win?'<div style="font-size:10px;color:var(--text3)">净派彩</div>':''}</td><td class="${pnlClass(pnl)}">${fmtPnl(pnl)}${k==='ptx'?'<div style="font-size:10px;color:var(--text3)">赢−注</div>':''}</td>`
+      ?`<td>${t.count}</td><td>${fmtMoney(t.bet)}</td><td class="win">${fmtMoney(t.win)}</td><td>${fmtMoney(t.rebate)}</td><td>${fmtMoney(t.payout)}</td><td class="${pnlClass(pnl)}">${fmtPnl(pnl)}</td>`
       :`<td>${t.count}</td><td class="tot">${fmtMoney(t.bet)}</td>`;
     return`<tr><td>${lb}</td>${cells}</tr>`;
   }).join('');
   const a=by.all;
   const totCells=showSettle
-    ?`<td>${a.count}</td><td>${fmtMoney(a.bet)}</td><td class="win">${fmtMoney(a.win)}</td><td>${fmtMoney(a.rebate)}</td><td>${fmtMoney(a.netPayout!=null?a.netPayout:a.payout)}</td><td class="${pnlClass(a.pnl!=null?a.pnl:housePnlNet(a.bet,a.payout))}">${fmtPnl(a.pnl!=null?a.pnl:housePnlNet(a.bet,a.payout))}</td>`
+    ?`<td>${a.count}</td><td>${fmtMoney(a.bet)}</td><td class="win">${fmtMoney(a.win)}</td><td>${fmtMoney(a.rebate)}</td><td>${fmtMoney(a.payout)}</td><td class="${pnlClass(a.pnl!=null?a.pnl:housePnlNet(a.bet,a.payout))}">${fmtPnl(a.pnl!=null?a.pnl:housePnlNet(a.bet,a.payout))}</td>`
     :`<td>${a.count}</td><td class="tot">${fmtMoney(a.bet)}</td>`;
   body+=`<tr><td>合计</td>${totCells}</tr>`;
   return`<table class="sum-table">${head}${body}</table>`;
@@ -756,9 +740,9 @@ function renderClientSettleRows(clientRows){
   return clientRows.map((r,i)=>`<div class="list-row" style="align-items:flex-start;font-size:13px">
     <span>${i+1}. <span class="badge bclient">${r.name}</span>${r.winCount?` · ${r.winCount}笔中`:''}</span>
     <span style="text-align:right;line-height:1.6">
-      下注 ${fmtMoney(r.bet)}<br>
-      <span style="color:var(--yellow)">中奖 ${fmtMoney(r.win)}</span> · 派彩 ${fmtMoney(r.payout)}<br>
-      <strong class="${pnlClass(r.pnl)}">${fmtPnl(r.pnl)}</strong>
+      本金 ${fmtMoney(r.bet)} − 派彩 ${fmtMoney(r.payout)}<br>
+      <span style="color:var(--text3);font-size:11px">中奖 ${fmtMoney(r.win)}${r.rebate?` · 回水 ${fmtMoney(r.rebate)}`:''}</span><br>
+      <strong class="${pnlClass(r.pnl)}">盈亏 ${fmtPnl(r.pnl)}</strong>
     </span>
   </div>`).join('');
 }
@@ -776,7 +760,7 @@ function renderSettleSummary(legacy,ctx,balls){
 function saveLastSettle(balls,legacy,ctx){
   try{
     const st=collectSettleStats(ctx);
-    stSet(SK.lastSettle,JSON.stringify({ver:APP_VER,balls,totB:legacy.totB,pnl:legacy.pnl,netPayout:st.by.all.netPayout,sum:legacy.sum,by:st.by,clientRows:st.clientRows,ts:Date.now()}));
+    stSet(SK.lastSettle,JSON.stringify({ver:APP_VER,balls,totB:legacy.totB,pnl:legacy.pnl,sum:legacy.sum,by:st.by,clientRows:st.clientRows,ts:Date.now()}));
   }catch(e){}
 }
 function renderLastSettleOnStats(){
@@ -789,7 +773,7 @@ function renderLastSettleOnStats(){
     card.style.display='block';
     box.innerHTML=`<div class="hero" style="font-size:28px;color:${d.pnl>=0?'var(--green)':'var(--red)'}">${fmtPnl(d.pnl)}</div>
       <div class="hint" style="text-align:center;margin-bottom:6px">${renderPnlBreakdown(d.by)}</div>
-      <div class="hint" style="text-align:center;margin-bottom:10px">开奖 ${ballStr} · ${pnlFormulaText(d.totB,d.netPayout!=null?d.netPayout:d.sum?.payout||0)}</div>
+      <div class="hint" style="text-align:center;margin-bottom:10px">开奖 ${ballStr} · ${pnlFormulaText(d.totB,d.sum?.payout||0)}</div>
       ${renderTypeTable(d.by,{settle:true})}
       <div style="margin-top:12px">${renderClientSettleRows(d.clientRows||[])}</div>`;
   }catch(e){card.style.display='none'}
