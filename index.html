@@ -67,7 +67,7 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
 .list-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:14px}
 .list-row:last-child{border:none}
 .badge{font-size:10px;padding:2px 8px;border-radius:8px;font-weight:600}
-.btema{background:#1e1b3d;color:#8B6EFF}.bptx{background:#2d1325;color:#CC5EA8}.bzod{background:#0d2519;color:#2ECC8A}.bwei{background:#2d2010;color:#F5C842}.bwin{background:#0d2a1a;color:#2ECC8A}.bclient{background:#1a2540;color:var(--blue)}
+.btema{background:#1e1b3d;color:#8B6EFF}.bptx{background:#2d1325;color:#CC5EA8}.bzod{background:#0d2519;color:#2ECC8A}.bwei{background:#2d2010;color:#F5C842}.blx{background:#102a34;color:#4ad7ff}.bwin{background:#0d2a1a;color:#2ECC8A}.bclient{background:#1a2540;color:var(--blue)}
 .ball-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
 .ball-in{text-align:center}
 .ball-in label{font-size:10px;color:var(--text2);display:block;margin-bottom:4px}
@@ -238,6 +238,12 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
         <div class="set-row"><span>平特肖</span><span style="text-align:right;color:var(--text2);font-size:14px">普通1:1<br>本命0.8</span></div>
         <div class="set-row"><span>平特尾赔率</span><input type="number" id="o-wei" value="0.8" step="0.05" inputmode="decimal"></div>
         <div class="set-row"><span>生肖赔率</span><input type="number" id="o-zod" value="1" step="0.1" inputmode="decimal"></div>
+        <div class="card-title" style="margin-top:14px">连肖赔率（派彩 = 下注 × 赔率）</div>
+        <div class="set-row"><span>1连肖赔率</span><input type="number" id="o-lx1" value="1.8" step="0.1" min="0" inputmode="decimal" oninput="updateMacauRulesHint()"></div>
+        <div class="set-row"><span>2连肖赔率</span><input type="number" id="o-lx2" value="4" step="0.1" min="0" inputmode="decimal" oninput="updateMacauRulesHint()"></div>
+        <div class="set-row"><span>3连肖赔率</span><input type="number" id="o-lx3" value="10" step="0.1" min="0" inputmode="decimal" oninput="updateMacauRulesHint()"></div>
+        <div class="set-row"><span>4连肖赔率</span><input type="number" id="o-lx4" value="30" step="0.1" min="0" inputmode="decimal" oninput="updateMacauRulesHint()"></div>
+        <div class="set-row"><span>5连肖赔率</span><input type="number" id="o-lx5" value="100" step="0.1" min="0" inputmode="decimal" oninput="updateMacauRulesHint()"></div>
         <div class="card-title" style="margin-top:14px">回水设置（中奖应付不含回水）</div>
         <div class="set-row"><span>特码回水%</span><input type="number" id="o-huishui" value="4" step="0.1" min="0" inputmode="decimal" oninput="updateMacauRulesHint()"></div>
         <div class="set-row"><span>平特回水%</span><input type="number" id="o-ptx_huishui" value="0" step="0.1" min="0" inputmode="decimal" oninput="updateMacauRulesHint()"></div>
@@ -301,7 +307,7 @@ const ZOD_E={鼠:'🐭',牛:'🐮',虎:'🐯',兔:'🐰',龙:'🐲',蛇:'🐍',�
 const YEAR_ANIMAL={2024:'龙',2025:'蛇',2026:'马',2027:'羊',2028:'猴',2029:'鸡',2030:'狗'};
 const RED=new Set([1,2,7,8,12,13,18,19,23,24,29,30,34,35,40,45,46]);
 const BLUE=new Set([3,4,9,10,14,15,20,25,26,31,36,37,41,42,47,48]);
-const TL={tema:'特码',zodiac:'生肖',ptx:'平特肖',wei:'尾数'};
+const TL={tema:'特码',zodiac:'生肖',ptx:'平特肖',wei:'尾数',lx:'连肖'};
 let ZOD_NUMS={鼠:[7,19,31,43],牛:[6,18,30,42],虎:[5,17,29,41],兔:[4,16,28,40],龙:[3,15,27,39],蛇:[2,14,26,38],马:[1,13,25,37,49],羊:[12,24,36,48],猴:[11,23,35,47],鸡:[10,22,34,46],狗:[9,21,33,45],猪:[8,20,32,44]};
 let NUM_ZOD={},ZOD_YEAR=2026,ZOD_YEAR_ANIMAL='马',clients=[];
 const IS_WECHAT=/MicroMessenger/i.test(navigator.userAgent);
@@ -383,7 +389,7 @@ function clearAllData(){
 
 function rebuildNumZod(){NUM_ZOD={};ZOD_ORDER.forEach(z=>(ZOD_NUMS[z]||[]).forEach(n=>NUM_ZOD[n]=z))}
 function buildZodiacByYear(a){const s=ZOD_ORDER.indexOf(a),m={};ZOD_ORDER.forEach(z=>m[z]=[]);for(let n=1;n<=49;n++)m[ZOD_ORDER[(s-((n-1)%12)+12)%12]].push(n);return m}
-const ODDS_DEF={tema:47,huishui:4,ptx_huishui:0,wei:0.8,zod:1,tema_mode:'macau'};
+const ODDS_DEF={tema:47,huishui:4,ptx_huishui:0,wei:0.8,zod:1,lx1:1.8,lx2:4,lx3:10,lx4:30,lx5:100,tema_mode:'macau'};
 function getO(k){
   const v=parseFloat(document.getElementById('o-'+k)?.value);
   if(!isNaN(v))return v;
@@ -430,6 +436,7 @@ function updateMacauRulesHint(){
     <strong>平特肖</strong>：7个开奖号任一属于该生肖即中；普通1:1，本命${ZOD_YEAR_ANIMAL}按0.8<br>
     <strong>生肖</strong>：特码生肖命中，中奖 = 下注 × 生肖赔率<br>
     <strong>尾数</strong>：7个号任一尾数命中，中奖 = 下注 × 尾赔率<br>
+    <strong>连肖</strong>：按 7 个开奖号生肖结算；每组生肖全部出现即中，派彩 = 下注 × 对应连数赔率<br>
     <strong>回水</strong>：特码总投 × ${pct}%；非本命平特总投 × ${ptxPct}%；本命平特不回水<br>
     <strong>本金池</strong>：全体客户本金汇总，用于支付中奖派彩<br>
     <strong>需补贴</strong>：派彩 − 本金池（&gt;0 表示你要额外掏的钱）<br>
@@ -521,6 +528,40 @@ function cnAmountToNumber(s){
   if(out>0)return out;
   return has?0:NaN;
 }
+function cnLxNum(s){
+  const m={一:1,二:2,两:2,兩:2,三:3,四:4,五:5};
+  return m[s]||+s||0;
+}
+function comboPick(arr,k,start,path,out){
+  if(path.length===k){out.push(path.slice());return out;}
+  for(let i=start;i<arr.length;i++)comboPick(arr,k,i+1,path.concat(arr[i]),out);
+  return out;
+}
+function parseLianXiaoRaw(seg){
+  const raw=String(seg||'').trim().replace(/\s+/g,'').replace(/复试/g,'复式');
+  if(!/连/.test(raw)||/平特/.test(raw))return null;
+  const m=raw.match(new RegExp('^(.*?)(?:各)?'+AMT_TOKEN_RE+'\\s*(?:'+UNIT_RE+')?\\s*$'));
+  if(!m)return null;
+  const body=m[1],amt=cnAmountToNumber(m[2]);
+  if(!(amt>0))return null;
+  const zods=[...new Set(extractZods(body))];
+  if(!zods.length)return null;
+  let ks=[],km;
+  km=body.match(/([1-5一二两兩三四五])[-－—~到至]([1-5一二两兩三四五])连/);
+  if(km){
+    const a=cnLxNum(km[1]),b=cnLxNum(km[2]);
+    for(let k=Math.min(a,b);k<=Math.max(a,b);k++)ks.push(k);
+  }else if((km=body.match(/([1-5一二两兩三四五])连/))){
+    ks=[cnLxNum(km[1])];
+  }else return null;
+  ks=ks.filter(k=>k>=1&&k<=5&&k<=zods.length);
+  if(!ks.length)return null;
+  const out=[];
+  ks.forEach(k=>comboPick(zods,k,0,[],[]).forEach(group=>{
+    out.push({type:'lx',sub:group.join(''),zods:group,lxN:k,amt,label:group.join('')+k+'连肖'});
+  }));
+  return out;
+}
 function parsePingTeRaw(seg){
   const raw=seg.trim().replace(/\s+/g,'');
   const m=raw.match(new RegExp('^(?:平特|平肖|平)\\s*[:：]?\\s*([鼠牛虎兔龙蛇马羊猴鸡狗猪]+)(?:各)?'+AMT_TOKEN_RE+'\\s*$'));
@@ -557,6 +598,7 @@ function splitMultiGe(l){const m=[...l.matchAll(new RegExp('(.+?(?:各|名)\\s*\
 function parseLineSingle(seg,raw){
   raw=raw||seg;
   const slash=parseSlashBet(seg);if(slash)return slash;
+  const lx=parseLianXiaoRaw(raw)||parseLianXiaoRaw(seg);if(lx)return lx;
   const pt=parsePingTeRaw(seg);if(pt)return pt;
   const line=sanitizeLine(seg);if(!line)return null;
   if(line.includes('平特')){
@@ -630,6 +672,7 @@ function temaEffectiveOdds(b){
 function temaWinAmount(b){return Math.max(0,b.amt*temaEffectiveOdds(b))}
 function betContentLabel(b){
   if(b.type==='tema'&&b.num!=null)return String(b.num).padStart(2,'0')+'号';
+  if(b.type==='lx')return b.label||((b.zods||[]).join('')+(b.lxN||'')+'连肖');
   if(b.label)return b.label;
   if(b.sub)return b.sub;
   return b.num!=null?String(b.num):'';
@@ -743,6 +786,8 @@ function isHomePtxZod(zo){return zo===ZOD_YEAR_ANIMAL}
 function ptxOddsForZod(zo){return isHomePtxZod(zo)?PTX_HOME_ODDS:PTX_ODDS}
 function fmtPtxOdds(o){return Number.isInteger(o)?String(o):String(o)}
 function ptxWinProfit(amt,zo){return amt*ptxOddsForZod(zo)}
+function lxOdds(n){return getO('lx'+n)}
+function isLxBet(b){return b?.type==='lx'}
 function houseWinAmt(b,profit){return profit>0?profit:0}
 function customerPayout(b,profit,rebate){
   const rb=rebate>0?rebate:0;
@@ -767,9 +812,13 @@ function calcPay(b,ctx){
   }else if(b.type==='wei'){
     if(ctx.hitTails?.has(b.sub)){w=b.amt*getO('wei');wt='尾'+b.sub}
     else wt='未中';
+  }else if(isLxBet(b)){
+    const zods=b.zods||extractZods(b.sub||b.label||''),n=b.lxN||zods.length,od=lxOdds(n);
+    if(zods.length&&zods.every(z=>ctx.hitZods?.has(z))){w=b.amt*od;wt=`${n}连肖 ${zods.join('')} ${od}:1 · ${b.amt}×${od}=${Math.round(w)}`}
+    else wt='未中';
   }
   const winAmt=houseWinAmt(b,w);
-  return{profit:w,rebate:r,winAmt,pay:customerPayout(b,w,r),winType:wt,ptxOdds:isPtxBet(b)?ptxOddsForZod(ptxBetZod(b)):null,isHomePtx:isPtxBet(b)?isHomePtxZod(ptxBetZod(b)):false};
+  return{profit:w,rebate:r,winAmt,pay:customerPayout(b,w,r),winType:wt,ptxOdds:isPtxBet(b)?ptxOddsForZod(ptxBetZod(b)):null,isHomePtx:isPtxBet(b)?isHomePtxZod(ptxBetZod(b)):false,lxOdds:isLxBet(b)?lxOdds(b.lxN||(b.zods||[]).length):null};
 }
 function calcPayLegacy(b,ctx){return calcPay(b,ctx)}
 function housePnlNet(principal,payout){return(principal||0)-(payout||0)}
@@ -794,7 +843,7 @@ function calcPtxPoolStats(t){
   t.surplus=Math.max(0,lb-(t.payout||0));
 }
 function calcAllPoolStats(by){
-  const keys=['tema','ptx','zodiac','wei'];
+  const keys=['tema','ptx','zodiac','wei','lx'];
   by.all.pnl=keys.reduce((s,k)=>s+(by[k].count?by[k].pnl:0),0);
   by.all.subsidy=Math.max(0,-by.all.pnl);
   by.all.surplus=Math.max(0,by.all.pnl);
@@ -804,7 +853,7 @@ function typeHousePnl(t){return t.pnl!=null?t.pnl:t.bet-t.payout}
 function pnlFormulaText(principal,payout){return`本金池 ¥${Math.round(principal).toLocaleString()} − 派彩 ¥${Math.round(payout||0).toLocaleString()}`}
 function effectiveSettlePool(by){
   if(!by)return 0;
-  return ['tema','zodiac','wei'].reduce((s,k)=>s+(by[k]?.bet||0),0)+(by.ptx?.loserBet||0);
+  return ['tema','zodiac','wei','lx'].reduce((s,k)=>s+(by[k]?.bet||0),0)+(by.ptx?.loserBet||0);
 }
 function fmtSubsidy(n){return n>0?`<span style="color:var(--red);font-weight:700">需补贴 ${fmtMoney(n)}</span>`:`<span style="color:var(--green)">无需补贴</span>`}
 function fmtPnl(n){return`${n>=0?'+':'-'}¥${Math.round(Math.abs(n)).toLocaleString()}`}
@@ -833,6 +882,7 @@ function renderPnlBreakdown(by){
   if(by.ptx?.count)parts.push(`平特${fmtPnl(by.ptx.pnl)}`);
   if(by.zodiac?.count)parts.push(`生肖${fmtPnl(by.zodiac.pnl)}`);
   if(by.wei?.count)parts.push(`尾数${fmtPnl(by.wei.pnl)}`);
+  if(by.lx?.count)parts.push(`连肖${fmtPnl(by.lx.pnl)}`);
   return parts.length?parts.join(' + ')+` = ${fmtPnl(by.all.pnl)}`:'';
 }
 function renderPnlCard(legacy,balls){
@@ -915,7 +965,7 @@ function previewParse(){
   box.style.display='block';
 }
 function clearInput(){document.getElementById('raw').value='';document.getElementById('cname').value='';document.getElementById('preview-box').style.display='none';setPasteStatus('')}
-function fillDemo(){document.getElementById('raw').value='牛各号50元\n猪鸡狗猴各数50\n羊各斤100\n01.02.03各30\n26.41.32名20\n平特马3000块\n尾0 500';previewParse()}
+function fillDemo(){document.getElementById('raw').value='牛各号50元\n猪鸡狗猴各数50\n羊各斤100\n01.02.03各30\n26.41.32名20\n平特马3000块\n尾0 500\n复式猪狗猴2-3连各100';previewParse()}
 function parseBetPreviewLabel(b){
   const key=betTypeKey(b);
   return`${TL[key]||key} ${betContentLabel(b)} ${fmtMoney(b.amt)}`;
@@ -944,7 +994,10 @@ function fillParseTest(){
     '07 1,000',
     '红波100',
     '01 02各50，03 04各100',
-    '尾七300'
+    '尾七300',
+    '猪狗二连100',
+    '3连猪狗猴100',
+    '复试猪狗猴2-3连各100'
   ].join('\n');
   previewParse();
 }
@@ -952,7 +1005,7 @@ function fillParseTest(){
 function betTypeKey(b){return isPtxBet(b)?'ptx':(b.type||'tema')}
 function emptyTypeAgg(){return{bet:0,count:0,win:0,winCount:0,loseCount:0,loserBet:0,winnerBet:0,rebate:0,payout:0,pnl:0,subsidy:0,surplus:0}}
 function collectBetStats(bets){
-  const by={tema:emptyTypeAgg(),ptx:emptyTypeAgg(),zodiac:emptyTypeAgg(),wei:emptyTypeAgg(),all:emptyTypeAgg()};
+  const by={tema:emptyTypeAgg(),ptx:emptyTypeAgg(),zodiac:emptyTypeAgg(),wei:emptyTypeAgg(),lx:emptyTypeAgg(),all:emptyTypeAgg()};
   (bets||[]).forEach(b=>{
     const k=betTypeKey(b);if(!by[k])return;
     by[k].bet+=b.amt;by[k].count++;
@@ -961,7 +1014,7 @@ function collectBetStats(bets){
   return by;
 }
 function collectSettleStats(ctx){
-  const by={tema:emptyTypeAgg(),ptx:emptyTypeAgg(),zodiac:emptyTypeAgg(),wei:emptyTypeAgg(),all:emptyTypeAgg()};
+  const by={tema:emptyTypeAgg(),ptx:emptyTypeAgg(),zodiac:emptyTypeAgg(),wei:emptyTypeAgg(),lx:emptyTypeAgg(),all:emptyTypeAgg()};
   const clientRows=[];
   clients.forEach(c=>{
     const row={name:c.name,...emptyTypeAgg()};
@@ -980,7 +1033,7 @@ function collectSettleStats(ctx){
     });
     clientRows.push(row);
   });
-  ['tema','zodiac','wei'].forEach(k=>{if(by[k].count)calcPoolStats(by[k])});
+  ['tema','zodiac','wei','lx'].forEach(k=>{if(by[k].count)calcPoolStats(by[k])});
   if(by.ptx.count)calcPtxPoolStats(by.ptx);
   calcAllPoolStats(by);
   return{by,clientRows,pnl:by.all.pnl};
@@ -988,7 +1041,7 @@ function collectSettleStats(ctx){
 function fmtMoney(n){return'¥'+Math.round(n).toLocaleString()}
 function pnlClass(n){return n>=0?'pnl-pos':'pnl-neg'}
 function renderTypeTable(by,opts){
-  const rows=[['tema','特码'],['ptx','平特肖'],['zodiac','生肖'],['wei','尾数']];
+  const rows=[['tema','特码'],['ptx','平特肖'],['zodiac','生肖'],['wei','尾数'],['lx','连肖']];
   const showSettle=!!opts?.settle;
   const head=showSettle
     ?'<tr><th>玩法</th><th>注数</th><th>本金池</th><th>中奖</th><th>派彩</th><th>需补贴</th><th>盈亏</th></tr>'
@@ -1016,6 +1069,7 @@ function renderClientBetRows(){
     if(by.ptx.count)parts.push(`平特${by.ptx.count}注 ${fmtMoney(by.ptx.bet)}`);
     if(by.zodiac.count)parts.push(`生肖${by.zodiac.count}注 ${fmtMoney(by.zodiac.bet)}`);
     if(by.wei.count)parts.push(`尾${by.wei.count}注 ${fmtMoney(by.wei.bet)}`);
+    if(by.lx.count)parts.push(`连肖${by.lx.count}注 ${fmtMoney(by.lx.bet)}`);
     return`<div class="list-row" style="align-items:flex-start">
       <span>${i+1}. <span class="badge bclient">${c.name}</span><br><span style="font-size:11px;color:var(--text3)">${parts.join(' · ')||'—'}</span></span>
       <strong style="text-align:right">${fmtMoney(by.all.bet)}<br><span style="font-size:11px;color:var(--text3);font-weight:400">${by.all.count}注</span></strong>
@@ -1139,10 +1193,12 @@ function renderSplitSettle(ctx,balls,wins){
   const ptxSub=`开奖 ${ballStr} · 7球肖位：${[...ctx.hitZods].map(z=>ZOD_E[z]+z).join(' ')}`;
   const zodiacSub=`开奖 ${ballStr} · 特码生肖：${ZOD_E[ga(balls[6]).zod]}${ga(balls[6]).zod}`;
   const weiSub=`开奖 ${ballStr} · 7球尾位：${[...ctx.hitTails].sort((a,b)=>a-b).map(t=>'尾'+t).join(' ')}`;
+  const lxSub=`开奖 ${ballStr} · 7球肖位：${[...ctx.hitZods].map(z=>ZOD_E[z]+z).join(' ')} · 连肖按每组全部出现结算`;
   let html=`${renderSplitSettleCard('tema','特码结算',st.by.tema,collectClientRowsByType(ctx,'tema'),wins,temaSub,'#4a5f8a')}
     ${renderSplitSettleCard('ptx','平特结算',st.by.ptx,collectClientRowsByType(ctx,'ptx'),wins,ptxSub,'#5a3d5a',ptxDetails)}`;
   if(st.by.zodiac.count)html+=renderSplitSettleCard('zodiac','生肖结算',st.by.zodiac,collectClientRowsByType(ctx,'zodiac'),wins,zodiacSub,'#2d5a44');
   if(st.by.wei.count)html+=renderSplitSettleCard('wei','尾数结算',st.by.wei,collectClientRowsByType(ctx,'wei'),wins,weiSub,'#5a4d2d');
+  if(st.by.lx.count)html+=renderSplitSettleCard('lx','连肖结算',st.by.lx,collectClientRowsByType(ctx,'lx'),wins,lxSub,'#225266');
   return html;
 }
 function renderSettleSummary(legacy,ctx,balls,wins){
@@ -1161,11 +1217,12 @@ function renderLastSettleOnStats(){
     const d=lastSettleCache;if(!d){card.style.display='none';return}
     const ballStr=(d.balls||[]).slice(0,6).map(n=>String(n).padStart(2,'0')).join(' ')+' + '+String((d.balls||[])[6]||'').padStart(2,'0');
     card.style.display='block';
-    const tema=d.by?.tema,ptx=d.by?.ptx,net=d.pnl??settleCashNet(d.totB,d.sum?.payout||0);
+    const tema=d.by?.tema,ptx=d.by?.ptx,lx=d.by?.lx,net=d.pnl??settleCashNet(d.totB,d.sum?.payout||0);
     box.innerHTML=`<div class="hero" style="font-size:28px;color:${d.pnl>=0?'var(--green)':'var(--red)'}">${fmtPnl(d.pnl)}</div>
       <div class="hint" style="text-align:center;margin-bottom:10px">开奖 ${ballStr} · 结算合计 ${fmtMoney(d.totB)} − ${fmtMoney(d.sum?.profit||0)} − ${fmtMoneyExact(d.sum?.r||0)} = ${fmtPnl(net)}</div>
       ${tema?.count?`<div class="list-row" style="font-size:13px"><span>特码</span><span>池${fmtMoney(tema.bet)}−派${fmtMoney(tema.payout)} ${tema.subsidy?'<span style="color:var(--red)">补'+fmtMoney(tema.subsidy)+'</span> ':''}<span class="${pnlClass(tema.pnl)}">${fmtPnl(tema.pnl)}</span></span></div>`:''}
-      ${ptx?.count?`<div class="list-row" style="font-size:13px"><span>平特</span><span>输${fmtMoney(ptx.loserBet??ptx.bet)}−派${fmtMoney(ptx.payout)} · 赢${ptx.winCount||0}输${ptx.loseCount||0} ${ptx.subsidy?'<span style="color:var(--red)">补'+fmtMoney(ptx.subsidy)+'</span> ':''}<span class="${pnlClass(ptx.pnl)}">${fmtPnl(ptx.pnl)}</span></span></div>`:''}`;
+      ${ptx?.count?`<div class="list-row" style="font-size:13px"><span>平特</span><span>输${fmtMoney(ptx.loserBet??ptx.bet)}−派${fmtMoney(ptx.payout)} · 赢${ptx.winCount||0}输${ptx.loseCount||0} ${ptx.subsidy?'<span style="color:var(--red)">补'+fmtMoney(ptx.subsidy)+'</span> ':''}<span class="${pnlClass(ptx.pnl)}">${fmtPnl(ptx.pnl)}</span></span></div>`:''}
+      ${lx?.count?`<div class="list-row" style="font-size:13px"><span>连肖</span><span>池${fmtMoney(lx.bet)}−派${fmtMoney(lx.payout)} · 中${lx.winCount||0}注 ${lx.subsidy?'<span style="color:var(--red)">补'+fmtMoney(lx.subsidy)+'</span> ':''}<span class="${pnlClass(lx.pnl)}">${fmtPnl(lx.pnl)}</span></span></div>`:''}`;
   }catch(e){card.style.display='none'}
 }
 
@@ -1182,19 +1239,21 @@ function renderStats(){
   const by=collectBetStats(bets);
   document.getElementById('stats-summary').innerHTML=renderTypeTable(by);
   renderLastSettleOnStats();
-  const tot=bets.reduce((a,b)=>a+b.amt,0),tm={},px={},zo={},wei={};
+  const tot=bets.reduce((a,b)=>a+b.amt,0),tm={},px={},zo={},wei={},lx={};
   bets.forEach(b=>{
     if(b.type==='tema')tm[b.num]=(tm[b.num]||0)+b.amt;
     else if(b.type==='ptx')px[b.sub]=(px[b.sub]||0)+b.amt;
     else if(b.type==='zodiac')zo[b.sub]=(zo[b.sub]||0)+b.amt;
     else if(b.type==='wei')wei[b.sub]=(wei[b.sub]||0)+b.amt;
+    else if(b.type==='lx'){const k=(b.lxN||'')+'连';lx[k]=(lx[k]||0)+b.amt;}
   });
-  const keys=Object.keys(tm).map(Number).sort((a,b)=>tm[b]-tm[a]),tt=keys.reduce((s,n)=>s+tm[n],0),pt=Object.values(px).reduce((a,b)=>a+b,0),wt=Object.values(wei).reduce((a,b)=>a+b,0);
+  const keys=Object.keys(tm).map(Number).sort((a,b)=>tm[b]-tm[a]),tt=keys.reduce((s,n)=>s+tm[n],0),pt=Object.values(px).reduce((a,b)=>a+b,0),wt=Object.values(wei).reduce((a,b)=>a+b,0),lt=Object.values(lx).reduce((a,b)=>a+b,0);
   document.getElementById('stats-kpi').innerHTML=`
     <div class="kpi-item"><div class="lb">总投注</div><div class="vl" style="color:var(--blue)">¥${tot.toLocaleString()}</div></div>
     <div class="kpi-item"><div class="lb">客户数</div><div class="vl">${clients.length}</div></div>
     <div class="kpi-item"><div class="lb">特码叠加</div><div class="vl" style="color:var(--yellow)">¥${tt.toLocaleString()}</div></div>
     <div class="kpi-item"><div class="lb">平特肖</div><div class="vl" style="color:var(--purple)">¥${pt.toLocaleString()}</div></div>
+    <div class="kpi-item"><div class="lb">连肖合计</div><div class="vl" style="color:#4ad7ff">¥${lt.toLocaleString()}</div></div>
     <div class="kpi-item"><div class="lb">尾数</div><div class="vl">¥${wt.toLocaleString()}</div></div>
     <div class="kpi-item"><div class="lb">回水合计</div><div class="vl" style="color:var(--green)">¥${calcRebateTotal(bets).toLocaleString(undefined,{maximumFractionDigits:1})}</div></div>`;
   document.getElementById('stats-clients').innerHTML=renderClientBetRows();
@@ -1204,9 +1263,10 @@ function renderStats(){
   document.getElementById('stats-heat').innerHTML=h;
   let other='';
   if(Object.keys(px).length)other+=Object.entries(px).sort((a,b)=>b[1]-a[1]).map(([z,v])=>`<div class="list-row"><span>平特 ${ZOD_E[z]}${z}</span><strong>¥${v.toLocaleString()}</strong></div>`).join('');
+  if(Object.keys(lx).length)other+=Object.entries(lx).sort((a,b)=>Number(a[0][0])-Number(b[0][0])).map(([k,v])=>`<div class="list-row"><span>连肖 ${k}</span><strong>¥${v.toLocaleString()}</strong></div>`).join('');
   if(Object.keys(zo).length)other+=Object.entries(zo).sort((a,b)=>b[1]-a[1]).map(([z,v])=>`<div class="list-row"><span>生肖 ${ZOD_E[z]}${z}</span><strong>¥${v.toLocaleString()}</strong></div>`).join('');
   if(Object.keys(wei).length)other+=Object.entries(wei).sort((a,b)=>b[1]-a[1]).map(([t,v])=>`<div class="list-row"><span>尾${t}</span><strong>¥${v.toLocaleString()}</strong></div>`).join('');
-  document.getElementById('stats-other').innerHTML=other||'<div class="empty">无平特肖/生肖/尾数</div>';
+  document.getElementById('stats-other').innerHTML=other||'<div class="empty">无平特肖/连肖/生肖/尾数</div>';
 }
 
 function renderRisk(){
