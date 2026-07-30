@@ -288,7 +288,7 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
 </div>
 
 <script>
-const APP_VER='2026.9.6',BUILD_ID='20260730f';
+const APP_VER='2026.9.7',BUILD_ID='20260730g';
 (function(){
   const u=new URL(location.href);
   if(u.searchParams.get('v')!==APP_VER||u.searchParams.get('b')!==BUILD_ID){
@@ -623,7 +623,7 @@ function extractZods(t){const f=[];(t.match(/[鼠牛虎兔龙蛇马羊猴鸡狗�
 function onlyZods(t){return extractZods(t.replace(UNIT_STRIP_RE,''))}
 function extractNums(t){const s=new Set();(t.match(/\d{1,2}/g)||[]).forEach(x=>{const n=+x;if(n>=1&&n<=49)s.add(n)});return[...s].sort((a,b)=>a-b)}
 function extractAmt(s){
-  let m=s.match(new RegExp('(?:各|名)\\s*(?:[号数])?\\s*'+AMT_TOKEN_RE+'\\s*(?:'+UNIT_RE+')?\\s*$'));
+  let m=s.match(new RegExp('(?:各组|各|名)\\s*(?:[号数])?\\s*'+AMT_TOKEN_RE+'\\s*(?:'+UNIT_RE+')?\\s*$'));
   if(m)return{amt:cnAmountToNumber(m[1]),pre:s.slice(0,s.length-m[0].length).trim()};
   m=s.match(new RegExp(AMT_TOKEN_RE+'\\s*(?:'+UNIT_RE+')\\s*$'));
   if(m)return{amt:cnAmountToNumber(m[1]),pre:s.slice(0,s.length-m[0].length).trim()};
