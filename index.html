@@ -288,7 +288,7 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
 </div>
 
 <script>
-const APP_VER='2026.9.7',BUILD_ID='20260730g';
+const APP_VER='2026.9.8',BUILD_ID='20260730h';
 (function(){
   const u=new URL(location.href);
   if(u.searchParams.get('v')!==APP_VER||u.searchParams.get('b')!==BUILD_ID){
@@ -583,6 +583,24 @@ function parseLianXiaoRaw(seg){
 function isPendingLxAmountLine(line){
   return new RegExp('^\\s*'+AMT_TOKEN_RE+'\\s*(?:'+UNIT_RE+')?\\s*$').test(String(line||'').trim());
 }
+function parseSectionAmountLine(line){
+  const raw=String(line||'').trim().replace(/\s+/g,'');
+  const m=raw.match(new RegExp('^(?:各组|各)\\s*'+AMT_TOKEN_RE+'\\s*(?:'+UNIT_RE+')?$'));
+  if(!m)return null;
+  const amt=cnAmountToNumber(m[1]);
+  return amt>0?amt:null;
+}
+function parseBareLxCombo(line){
+  const raw=String(line||'').trim().replace(/\s+/g,'');
+  if(!raw||/连|平特|平肖|尾|\d{1,2}[\\/:-]/.test(raw))return null;
+  const ex=extractAmt(raw);
+  const body=ex?ex.pre:raw;
+  const zods=extractZods(body);
+  if(zods.length<2||zods.length>5||zods.length!==body.length)return null;
+  if(ex&&ex.amt>0&&/各组/.test(raw))return makeLxBets(zods,[zods.length],ex.amt);
+  if(ex)return null;
+  return{missingAmount:true,n:zods.length,zods};
+}
 function isLxAwaitAmountLine(line){
   const raw=String(line||'').trim().replace(/\s+/g,'').replace(/复试/g,'复式');
   return /连/.test(raw)&&/各组$/.test(raw)&&!parseLianXiaoRaw(raw);
@@ -697,6 +715,16 @@ function parseText(text){
         log.push({ok:true,lineNo:idx+1,line:sub,detail:'手写合计已忽略，系统自动计算总额',bets:[]});
         return;
       }
+      const sectionAmt=parseSectionAmountLine(sub);
+      if(sectionAmt){
+        if(pendingSection.length){
+          flushSectionWithAmount(sectionAmt);
+          log.push({ok:true,lineNo:idx+1,line:sub,detail:`本段金额 ${fmtMoney(sectionAmt)} 已补入`,bets:[]});
+        }else{
+          log.push({ok:true,lineNo:idx+1,line:sub,detail:`单独金额 ${fmtMoney(sectionAmt)}，无待补连肖组合，已忽略`,bets:[]});
+        }
+        return;
+      }
       if(pendingLx){
         if(isPendingLxAmountLine(sub)){
           const combined=pendingLx.line+sub;
@@ -728,6 +756,17 @@ function parseText(text){
       if(sectionBet){
         flushSectionWithAmount(sectionBet[0].amt);
         out.push(...sectionBet);log.push({ok:true,lineNo:idx+1,line:sub,detail:sectionBet.length+'注 ¥'+sectionBet.reduce((a,b)=>a+b.amt,0),bets:sectionBet});
+        return;
+      }
+      const bareLx=parseBareLxCombo(sub);
+      if(bareLx?.missingAmount){
+        pendingSection.push({lineNo:idx+1,line:sub,n:bareLx.n,zods:bareLx.zods});
+        log.push({ok:true,lineNo:idx+1,line:sub,detail:`${bareLx.n}连组合等待本段金额`,bets:[]});
+        return;
+      }
+      if(bareLx){
+        flushSectionWithAmount(bareLx[0].amt);
+        out.push(...bareLx);log.push({ok:true,lineNo:idx+1,line:sub,detail:bareLx.length+'注 ¥'+bareLx.reduce((a,b)=>a+b.amt,0),bets:bareLx});
         return;
       }
       const s=sanitizeLine(sub);if(!s&& !parsePingTeRaw(sub)&&!parseSlashBet(sub)){return}
