@@ -229,7 +229,7 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
       <div class="card">
         <div class="card-title">赔率设置</div>
         <div class="set-row"><span>特码赔率</span><input type="number" id="o-tema" value="47" step="0.5" inputmode="decimal" oninput="updateMacauRulesHint()"></div>
-        <div class="set-row"><span>特码算法</span><span style="text-align:right;color:var(--text2);font-size:14px">满赔率<br>下注×赔率</span></div>
+        <div class="set-row"><span>特码算法</span><span style="text-align:right;color:var(--text2);font-size:14px">中奖减1倍<br>下注×(赔率-1)</span></div>
         <div class="set-row"><span>平特肖</span><span style="text-align:right;color:var(--text2);font-size:14px">普通1:1<br>本命0.8</span></div>
         <div class="set-row"><span>平特尾赔率</span><input type="number" id="o-wei" value="0.8" step="0.05" inputmode="decimal"></div>
         <div class="set-row"><span>生肖赔率</span><input type="number" id="o-zod" value="1" step="0.1" inputmode="decimal"></div>
@@ -288,7 +288,7 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
 </div>
 
 <script>
-const APP_VER='2026.9.1',BUILD_ID='20260730a';
+const APP_VER='2026.9.2',BUILD_ID='20260730b';
 (function(){
   const u=new URL(location.href);
   if(u.searchParams.get('v')!==APP_VER||u.searchParams.get('b')!==BUILD_ID){
@@ -422,7 +422,7 @@ function updateMacauRulesHint(){
   const hint=document.getElementById('rebate-hint');
   const base=getO('tema'),pct=getO('huishui'),ptxPct=getO('ptx_huishui');
   const temaTot=temaBetTotal(),ptxRbTot=ptxRebateBetTotal(),temaRb=calcTemaRebateTotal(),ptxRb=calcPtxRebateTotal();
-  const temaLine=`<strong>特码</strong>：中奖金额 = 单注 × ${base}（满赔率）`;
+  const temaLine=`<strong>特码</strong>：中奖号码自动减1倍；中奖金额 = 单注 × (${base}−1) = 单注 × ${Math.max(0,base-1)}`;
   if(rules)rules.innerHTML=`${temaLine}<br>
     <strong>平特肖</strong>：7个开奖号任一属于该生肖即中；普通1:1，本命${ZOD_YEAR_ANIMAL}按0.8<br>
     <strong>生肖</strong>：特码生肖命中，中奖 = 下注 × 生肖赔率<br>
@@ -659,8 +659,7 @@ function renderUnrecognizedSummary(errs){
 const PTX_ODDS=1;
 const PTX_HOME_ODDS=0.8;
 function temaEffectiveOdds(b){
-  const base=getO('tema'),n=b.numCount||1;
-  return getTemaMode()==='full'?base:Math.max(0,base-n);
+  return Math.max(0,getO('tema')-1);
 }
 function temaWinAmount(b){return Math.max(0,b.amt*temaEffectiveOdds(b))}
 function betContentLabel(b){
@@ -792,9 +791,7 @@ function calcPay(b,ctx){
   if(b.type==='tema'){
     if(ctx.temaNum!=null&&b.num===ctx.temaNum){
       const eo=temaEffectiveOdds(b);w=temaWinAmount(b);
-      wt=getTemaMode()==='full'
-        ?`特码 ${b.amt}×${getO('tema')}=${Math.round(w)}`
-        :`特码 ${getO('tema')}-${b.numCount||1}=${eo} · ${b.amt}×${eo}=${Math.round(w)}`;
+      wt=`特码中奖减1倍 ${getO('tema')}-1=${eo} · ${b.amt}×${eo}=${Math.round(w)}`;
     }else wt=r>0?'回水':'未中';
   }else if(b.type==='zodiac'&&ctx.temaNum!=null&&b.sub===ga(ctx.temaNum).zod){
     w=b.amt*getO('zod');wt='生肖命中';
