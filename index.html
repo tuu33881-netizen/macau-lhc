@@ -288,7 +288,7 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
 </div>
 
 <script>
-const APP_VER='2026.9.2',BUILD_ID='20260730b';
+const APP_VER='2026.9.3',BUILD_ID='20260730c';
 (function(){
   const u=new URL(location.href);
   if(u.searchParams.get('v')!==APP_VER||u.searchParams.get('b')!==BUILD_ID){
@@ -752,7 +752,7 @@ function renderClientWinDetailCard(legacy,wins,ctx){
         <span><span class="badge bclient">${r.name}</span><br><span style="font-size:11px;color:var(--text3)">投注 ${fmtMoney(r.bet)} · ${c.bets.length}注 · ${clientWins.length}笔中奖</span></span>
         <span style="text-align:right;line-height:1.6">
           <strong style="color:${(r.net??settleCashNet(r.bet,r.payout))>=0?'var(--green)':'var(--red)'}">净结算 ${fmtPnl(r.net??settleCashNet(r.bet,r.payout))}</strong><br>
-          <span style="font-size:11px;color:var(--yellow)">应付合计 ${fmtMoney(r.profit)}</span><br>
+          <span style="font-size:11px;color:var(--yellow)">投注总金额 ${fmtMoney(r.bet)}</span><br>
           <span style="font-size:11px;color:var(--green)">中奖金额 ${fmtMoney(r.profit)}</span><br>
           <span style="font-size:11px;color:var(--blue)">回水合计 ${fmtMoneyExact(r.rebate)}</span>
         </span>
@@ -767,7 +767,7 @@ function renderClientWinDetailCard(legacy,wins,ctx){
   }).join('');
   return`<div class="card" style="border-color:#5a4a2d">
     <div class="card-title">客户注单明细 · 中奖与回水分开</div>
-    <div class="hint">每个客户显示全部解析注单；应付合计只统计中奖金额，特码/平特回水独立显示，本命平特不回水，净结算另行扣减回水。</div>
+    <div class="hint">每个客户显示全部解析注单；投注总金额、中奖金额、回水分开显示，本命平特不回水，净结算另行扣减回水。</div>
     ${body}
   </div>`;
 }
@@ -892,7 +892,7 @@ function renderPnlCard(legacy,balls){
       <div class="kpi-item"><div class="lb">回水合计</div><div class="vl" style="color:var(--blue)">${fmtMoneyExact(s.r)}</div></div>
       <div class="kpi-item"><div class="lb">特码回水</div><div class="vl" style="color:var(--blue)">${fmtMoneyExact(temaRebate)}</div></div>
       <div class="kpi-item"><div class="lb">平特回水</div><div class="vl" style="color:var(--blue)">${fmtMoneyExact(ptxRebate)}</div></div>
-      <div class="kpi-item"><div class="lb">应付合计</div><div class="vl" style="color:var(--yellow)">${fmtMoney(s.profit)}</div></div>
+      <div class="kpi-item"><div class="lb">投注总金额</div><div class="vl" style="color:var(--yellow)">${fmtMoney(legacy.totB)}</div></div>
       <div class="kpi-item"><div class="lb">有效结算池</div><div class="vl" style="color:var(--blue)">¥${Math.round(effectivePool).toLocaleString()}</div></div>
       <div class="kpi-item"><div class="lb">有效池盈亏</div><div class="vl" style="color:${poolPnl>=0?'var(--green)':'var(--red)'}">${fmtPnl(poolPnl)}</div></div>
       <div class="kpi-item"><div class="lb">净需补贴</div><div class="vl" style="color:${totalSubsidy?'var(--red)':'var(--green)'}">${totalSubsidy?'¥'+Math.round(totalSubsidy).toLocaleString():'¥0'}</div></div>
