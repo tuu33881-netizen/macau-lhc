@@ -288,7 +288,7 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
 </div>
 
 <script>
-const APP_VER='2026.9.3',BUILD_ID='20260730c';
+const APP_VER='2026.9.4',BUILD_ID='20260730d';
 (function(){
   const u=new URL(location.href);
   if(u.searchParams.get('v')!==APP_VER||u.searchParams.get('b')!==BUILD_ID){
@@ -528,39 +528,74 @@ function comboPick(arr,k,start,path,out){
   for(let i=start;i<arr.length;i++)comboPick(arr,k,i+1,path.concat(arr[i]),out);
   return out;
 }
-function parseLianXiaoRaw(seg){
-  const raw=String(seg||'').trim().replace(/\s+/g,'').replace(/复试/g,'复式');
-  if(!/连/.test(raw)||/平特/.test(raw))return null;
-  const m=raw.match(new RegExp('^(.*?)(?:各)?'+AMT_TOKEN_RE+'\\s*(?:'+UNIT_RE+')?\\s*$'));
-  if(!m)return null;
-  const body=m[1],amt=cnAmountToNumber(m[2]);
-  if(!(amt>0))return null;
-  const zods=[...new Set(extractZods(body))];
-  if(!zods.length)return null;
-  let ks=[],km;
-  km=body.match(/([1-5一二两兩三四五])[-－—~到至]([1-5一二两兩三四五])连/);
-  if(km){
-    const a=cnLxNum(km[1]),b=cnLxNum(km[2]);
-    for(let k=Math.min(a,b);k<=Math.max(a,b);k++)ks.push(k);
-  }else if((km=body.match(/([1-5一二两兩三四五])连/))){
-    ks=[cnLxNum(km[1])];
-  }else return null;
-  ks=ks.filter(k=>k>=2&&k<=5&&k<=zods.length);
-  if(!ks.length)return null;
+function makeLxBets(zods,ks,amt){
   const out=[];
   ks.forEach(k=>comboPick(zods,k,0,[],[]).forEach(group=>{
     out.push({type:'lx',sub:group.join(''),zods:group,lxN:k,amt,label:group.join('')+k+'连肖'});
   }));
   return out;
 }
-function parsePingTeRaw(seg){
-  const raw=seg.trim().replace(/\s+/g,'');
-  const m=raw.match(new RegExp('^(?:平特|平肖|平)\\s*[:：]?\\s*([鼠牛虎兔龙蛇马羊猴鸡狗猪]+)(?:各)?'+AMT_TOKEN_RE+'\\s*$'));
-  if(m){
-    const a=cnAmountToNumber(m[2]),z=extractZods(m[1]);
-    if(z.length&&a>0)return z.map(s=>({type:'ptx',sub:s,amt:a,label:'平特'+s}));
+function extractLxKs(body){
+  const ks=[];
+  const range=body.match(/([1-5一二两兩三四五])[-－—~到至]([1-5一二两兩三四五])连/);
+  if(range){
+    const a=cnLxNum(range[1]),b=cnLxNum(range[2]);
+    for(let k=Math.min(a,b);k<=Math.max(a,b);k++)ks.push(k);
   }
-  return null;
+  let m;const re=/([1-5一二两兩三四五])连/g;
+  while((m=re.exec(body))){
+    const k=cnLxNum(m[1]);
+    if(k&&!ks.includes(k))ks.push(k);
+  }
+  return ks.filter(k=>k>=2&&k<=5).sort((a,b)=>a-b);
+}
+function parseLxSectionHeader(line){
+  const raw=String(line||'').trim().replace(/\s+/g,'').replace(/复试/g,'复式');
+  const m=raw.match(new RegExp('^([2-5二两兩三四五])连(?:肖)?(?:各组|各)?\\s*('+AMT_TOKEN_RE+')?\\s*(?:'+UNIT_RE+')?$'));
+  if(!m)return null;
+  const n=cnLxNum(m[1]),amt=m[2]?cnAmountToNumber(m[2]):null;
+  return n>=2&&n<=5?{n,amt:amt>0?amt:null}:null;
+}
+function parseLxSectionCombo(line,section){
+  if(!section)return null;
+  const raw=String(line||'').trim().replace(/\s+/g,'');
+  if(!raw||/连|平特|尾|\d{1,2}[\\/:-]/.test(raw))return null;
+  const ex=extractAmt(raw);
+  const body=ex?ex.pre:raw,amt=ex?ex.amt:section.amt;
+  const zods=extractZods(body);
+  if(zods.length!==section.n)return null;
+  if(!(amt>0))return{missingAmount:true,n:section.n,zods};
+  return makeLxBets(zods,[section.n],amt);
+}
+function parseLianXiaoRaw(seg){
+  const raw=String(seg||'').trim().replace(/\s+/g,'').replace(/复试/g,'复式');
+  if(!/连/.test(raw)||/平特/.test(raw))return null;
+  const m=raw.match(new RegExp('^(.*?)(?:各组|各)?'+AMT_TOKEN_RE+'\\s*(?:'+UNIT_RE+')?\\s*$'));
+  if(!m)return null;
+  const body=m[1],amt=cnAmountToNumber(m[2]);
+  if(!(amt>0))return null;
+  const zods=[...new Set(extractZods(body))];
+  if(!zods.length)return null;
+  let ks=extractLxKs(body).filter(k=>k<=zods.length);
+  if(!ks.length)return null;
+  return makeLxBets(zods,ks,amt);
+}
+function parsePingTeRaw(seg){
+  let raw=String(seg||'').trim().replace(/\s+/g,'').replace(/[.．。;；,，、]/g,'');
+  raw=raw.replace(/([鼠牛虎兔龙蛇马羊猴鸡狗猪]+)(平特|平肖)/g,'平特$1');
+  if(!/(平特|平肖|^平)/.test(raw))return null;
+  let body=raw.replace(/^(平特|平肖|平)[:：]?/,'').replace(/(平特|平肖|平)/g,'');
+  const re=new RegExp('([鼠牛虎兔龙蛇马羊猴鸡狗猪]+)(?:各)?'+AMT_TOKEN_RE,'g');
+  let m,last=0,out=[];
+  while((m=re.exec(body))){
+    if(body.slice(last,m.index).trim())return null;
+    const a=cnAmountToNumber(m[2]),z=extractZods(m[1]);
+    if(!(a>0)||!z.length)return null;
+    z.forEach(s=>out.push({type:'ptx',sub:s,amt:a,label:'平特'+s}));
+    last=re.lastIndex;
+  }
+  if(body.slice(last).trim())return null;
+  return out.length?out:null;
 }
 function parseSlashBet(seg){
   const m=seg.trim().match(/^(\d{1,2})\s*\/\s*(\d{2,})\s*$/);
@@ -627,9 +662,26 @@ function parseFailReason(line){
 }
 function parseText(text){
   const out=[],log=[],errs=[];
+  let lxSection=null;
   text.split('\n').forEach((line,idx)=>{
     const t=normalizeNumberListCommas(line.trim());if(!t)return;
     splitSubLines(t).forEach(sub=>{
+      const hdr=parseLxSectionHeader(sub);
+      if(hdr){
+        lxSection=hdr;
+        log.push({ok:true,lineNo:idx+1,line:sub,detail:`连肖分组：${hdr.n}连${hdr.amt?` · 每组 ${fmtMoney(hdr.amt)}`:' · 等待每组金额'}`,bets:[]});
+        return;
+      }
+      const sectionBet=parseLxSectionCombo(sub,lxSection);
+      if(sectionBet?.missingAmount){
+        const reason=`${sectionBet.n}连组合缺少金额，请写成「${sub}${lxSection?.amt||100}」或标题写「${sectionBet.n}连各${lxSection?.amt||100}」`;
+        errs.push({lineNo:idx+1,line:sub,reason});log.push({ok:false,lineNo:idx+1,line:sub,detail:'连肖组合缺少金额',reason});
+        return;
+      }
+      if(sectionBet){
+        out.push(...sectionBet);log.push({ok:true,lineNo:idx+1,line:sub,detail:sectionBet.length+'注 ¥'+sectionBet.reduce((a,b)=>a+b.amt,0),bets:sectionBet});
+        return;
+      }
       const s=sanitizeLine(sub);if(!s&& !parsePingTeRaw(sub)&&!parseSlashBet(sub)){return}
       const parts=splitMultiGe(sanitizeLine(sub)||sub),all=[];
       for(const p of parts){const r=parseLineSingle(p,sub);if(r)all.push(...r)}
