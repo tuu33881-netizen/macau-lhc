@@ -288,7 +288,7 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
 </div>
 
 <script>
-const APP_VER='2026.9.4',BUILD_ID='20260730d';
+const APP_VER='2026.9.5',BUILD_ID='20260730e';
 (function(){
   const u=new URL(location.href);
   if(u.searchParams.get('v')!==APP_VER||u.searchParams.get('b')!==BUILD_ID){
@@ -580,6 +580,16 @@ function parseLianXiaoRaw(seg){
   if(!ks.length)return null;
   return makeLxBets(zods,ks,amt);
 }
+function isPendingLxAmountLine(line){
+  return new RegExp('^\\s*'+AMT_TOKEN_RE+'\\s*(?:'+UNIT_RE+')?\\s*$').test(String(line||'').trim());
+}
+function isLxAwaitAmountLine(line){
+  const raw=String(line||'').trim().replace(/\s+/g,'').replace(/复试/g,'复式');
+  return /连/.test(raw)&&/各组$/.test(raw)&&!parseLianXiaoRaw(raw);
+}
+function isManualTotalLine(line){
+  return /^\s*(?:共|合计|总计|总共|小计)\s*\d+(?:\.\d+)?\s*$/.test(String(line||''));
+}
 function parsePingTeRaw(seg){
   let raw=String(seg||'').trim().replace(/\s+/g,'').replace(/[.．。;；,，、]/g,'');
   raw=raw.replace(/([鼠牛虎兔龙蛇马羊猴鸡狗猪]+)(平特|平肖)/g,'平特$1');
@@ -662,10 +672,29 @@ function parseFailReason(line){
 }
 function parseText(text){
   const out=[],log=[],errs=[];
-  let lxSection=null;
+  let lxSection=null,pendingLx=null;
   text.split('\n').forEach((line,idx)=>{
     const t=normalizeNumberListCommas(line.trim());if(!t)return;
     splitSubLines(t).forEach(sub=>{
+      if(isManualTotalLine(sub)){
+        log.push({ok:true,lineNo:idx+1,line:sub,detail:'手写合计已忽略，系统自动计算总额',bets:[]});
+        return;
+      }
+      if(pendingLx){
+        if(isPendingLxAmountLine(sub)){
+          const combined=pendingLx.line+sub;
+          const r=parseLineSingle(combined,combined);
+          if(r){out.push(...r);log.push({ok:true,lineNo:pendingLx.lineNo,line:pendingLx.line+' / '+sub,detail:r.length+'注 ¥'+r.reduce((a,b)=>a+b.amt,0),bets:r});pendingLx=null;return;}
+        }
+        const reason='连肖复式缺少各组金额，请在同一行写金额，或下一行只写金额';
+        errs.push({lineNo:pendingLx.lineNo,line:pendingLx.line,reason});log.push({ok:false,lineNo:pendingLx.lineNo,line:pendingLx.line,detail:'连肖复式缺少金额',reason});
+        pendingLx=null;
+      }
+      if(isLxAwaitAmountLine(sub)){
+        pendingLx={line:sub,lineNo:idx+1};
+        log.push({ok:true,lineNo:idx+1,line:sub,detail:'连肖复式等待下一行金额',bets:[]});
+        return;
+      }
       const hdr=parseLxSectionHeader(sub);
       if(hdr){
         lxSection=hdr;
@@ -689,6 +718,10 @@ function parseText(text){
       else{const reason=parseFailReason(sub);errs.push({lineNo:idx+1,line:sub,reason});log.push({ok:false,lineNo:idx+1,line:sub,detail:'无法识别',reason})}
     });
   });
+  if(pendingLx){
+    const reason='连肖复式缺少各组金额，请在同一行写金额，或下一行只写金额';
+    errs.push({lineNo:pendingLx.lineNo,line:pendingLx.line,reason});log.push({ok:false,lineNo:pendingLx.lineNo,line:pendingLx.line,detail:'连肖复式缺少金额',reason});
+  }
   return{bets:out,log,errs};
 }
 function escHtml(v){
