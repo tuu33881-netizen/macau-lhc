@@ -288,7 +288,7 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
 </div>
 
 <script>
-const APP_VER='2026.9.5',BUILD_ID='20260730e';
+const APP_VER='2026.9.6',BUILD_ID='20260730f';
 (function(){
   const u=new URL(location.href);
   if(u.searchParams.get('v')!==APP_VER||u.searchParams.get('b')!==BUILD_ID){
@@ -672,9 +672,26 @@ function parseFailReason(line){
 }
 function parseText(text){
   const out=[],log=[],errs=[];
-  let lxSection=null,pendingLx=null;
+  let lxSection=null,pendingLx=null,pendingSection=[];
+  function flushSectionMissing(){
+    if(!pendingSection.length)return;
+    const first=pendingSection[0],n=first.n,count=pendingSection.length;
+    const reason=`${n}连分组有${count}组缺少金额，请在标题写「${n}连各金额」，或本段最后一组写「${first.line}各金额」`;
+    errs.push({lineNo:first.lineNo,line:`${n}连分组未定金额`,reason});
+    log.push({ok:false,lineNo:first.lineNo,line:`${n}连分组未定金额`,detail:'连肖分组缺少金额',reason});
+    pendingSection=[];
+  }
+  function flushSectionWithAmount(amt){
+    if(!pendingSection.length)return;
+    pendingSection.forEach(p=>{
+      const bets=makeLxBets(p.zods,[p.n],amt);
+      out.push(...bets);
+      log.push({ok:true,lineNo:p.lineNo,line:p.line,detail:bets.length+'注 ¥'+bets.reduce((a,b)=>a+b.amt,0)+'（按本段金额补入）',bets});
+    });
+    pendingSection=[];
+  }
   text.split('\n').forEach((line,idx)=>{
-    const t=normalizeNumberListCommas(line.trim());if(!t)return;
+    const t=normalizeNumberListCommas(line.trim().replace(/^[•·\\-\\*]\s*/,''));if(!t)return;
     splitSubLines(t).forEach(sub=>{
       if(isManualTotalLine(sub)){
         log.push({ok:true,lineNo:idx+1,line:sub,detail:'手写合计已忽略，系统自动计算总额',bets:[]});
@@ -697,17 +714,19 @@ function parseText(text){
       }
       const hdr=parseLxSectionHeader(sub);
       if(hdr){
+        flushSectionMissing();
         lxSection=hdr;
         log.push({ok:true,lineNo:idx+1,line:sub,detail:`连肖分组：${hdr.n}连${hdr.amt?` · 每组 ${fmtMoney(hdr.amt)}`:' · 等待每组金额'}`,bets:[]});
         return;
       }
       const sectionBet=parseLxSectionCombo(sub,lxSection);
       if(sectionBet?.missingAmount){
-        const reason=`${sectionBet.n}连组合缺少金额，请写成「${sub}${lxSection?.amt||100}」或标题写「${sectionBet.n}连各${lxSection?.amt||100}」`;
-        errs.push({lineNo:idx+1,line:sub,reason});log.push({ok:false,lineNo:idx+1,line:sub,detail:'连肖组合缺少金额',reason});
+        pendingSection.push({lineNo:idx+1,line:sub,n:sectionBet.n,zods:sectionBet.zods});
+        log.push({ok:true,lineNo:idx+1,line:sub,detail:`${sectionBet.n}连组合等待本段金额`,bets:[]});
         return;
       }
       if(sectionBet){
+        flushSectionWithAmount(sectionBet[0].amt);
         out.push(...sectionBet);log.push({ok:true,lineNo:idx+1,line:sub,detail:sectionBet.length+'注 ¥'+sectionBet.reduce((a,b)=>a+b.amt,0),bets:sectionBet});
         return;
       }
@@ -722,6 +741,7 @@ function parseText(text){
     const reason='连肖复式缺少各组金额，请在同一行写金额，或下一行只写金额';
     errs.push({lineNo:pendingLx.lineNo,line:pendingLx.line,reason});log.push({ok:false,lineNo:pendingLx.lineNo,line:pendingLx.line,detail:'连肖复式缺少金额',reason});
   }
+  flushSectionMissing();
   return{bets:out,log,errs};
 }
 function escHtml(v){
