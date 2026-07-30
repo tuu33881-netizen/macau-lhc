@@ -288,7 +288,7 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
 </div>
 
 <script>
-const APP_VER='2026.9.8',BUILD_ID='20260730h';
+const APP_VER='2026.9.9',BUILD_ID='20260730i';
 (function(){
   const u=new URL(location.href);
   if(u.searchParams.get('v')!==APP_VER||u.searchParams.get('b')!==BUILD_ID){
@@ -1085,9 +1085,9 @@ function previewParse(){
   const text=document.getElementById('raw').value.trim(),box=document.getElementById('preview-box');
   if(!text){box.style.display='none';return}
   const{bets:bs,log,errs}=parseText(text),tot=bs.reduce((a,b)=>a+b.amt,0);
-  const okCnt=log.filter(l=>l.ok).length,errCnt=log.filter(l=>!l.ok).length;
+  const betLineCnt=log.filter(l=>l.ok&&l.bets?.length).length,errCnt=log.filter(l=>!l.ok).length;
   box.innerHTML='<div class="card-title">注单识别结果（当前输入）</div>'+
-    `<div class="kpi"><div class="kpi-item"><div class="lb">已识别行</div><div class="vl" style="color:var(--green)">${okCnt}</div></div><div class="kpi-item"><div class="lb">未识别行</div><div class="vl" style="color:${errCnt?'var(--red)':'var(--green)'}">${errCnt}</div></div></div>`+
+    `<div class="kpi"><div class="kpi-item"><div class="lb">识别注数</div><div class="vl" style="color:var(--green)">${bs.length}</div></div><div class="kpi-item"><div class="lb">有效文本行</div><div class="vl" style="color:var(--blue)">${betLineCnt}</div></div><div class="kpi-item"><div class="lb">未识别行</div><div class="vl" style="color:${errCnt?'var(--red)':'var(--green)'}">${errCnt}</div></div><div class="kpi-item"><div class="lb">投注合计</div><div class="vl" style="color:var(--yellow)">¥${tot.toLocaleString()}</div></div></div>`+
     renderUnrecognizedSummary(errs)+
     log.map(l=>`<div class="log-item ${l.ok?'ok':'err'}">
       <div style="font-weight:700">${l.ok?'✓ 已识别':'✗ 未识别'} · 第${l.lineNo}行 · ${escHtml(l.line)}</div>
